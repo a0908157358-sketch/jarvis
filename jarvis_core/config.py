@@ -1,13 +1,14 @@
 """讀取設定。
 
 鐵律：缺少任何必要設定就明確報錯並請使用者補上，不使用猜測的預設值。
-（唯一例外：JARVIS_MAX_STEPS 為安全上限，預設 8，可在 .env 覆寫。）
+（JARVIS_MAX_STEPS 預設 8；GEMINI_FALLBACK_MODELS 可選填逗號分隔的備援模型清單。）
 """
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Tuple
 
 from dotenv import load_dotenv
 
@@ -26,12 +27,12 @@ class ConfigError(Exception):
 class Config:
     api_key: str
     model: str
+    fallback_models: Tuple[str, ...]
     max_steps: int
 
 
 def load_config() -> Config:
     if ENV_PATH.is_file():
-        # utf-8-sig：相容 Windows 記事本可能加上的 BOM
         load_dotenv(ENV_PATH, encoding="utf-8-sig")
 
     problems: list[str] = []
@@ -43,6 +44,11 @@ def load_config() -> Config:
     model = os.getenv("GEMINI_MODEL", "").strip()
     if model in _PLACEHOLDERS:
         problems.append("GEMINI_MODEL：要使用的 Gemini 模型名稱")
+
+    raw_fallbacks = os.getenv("GEMINI_FALLBACK_MODELS", "").strip()
+    fallbacks = tuple(
+        m.strip() for m in raw_fallbacks.split(",") if m.strip() and m.strip() != model
+    )
 
     max_steps = _DEFAULT_MAX_STEPS
     raw_steps = os.getenv("JARVIS_MAX_STEPS", "").strip()
@@ -62,4 +68,9 @@ def load_config() -> Config:
             + hint
         )
 
-    return Config(api_key=api_key, model=model, max_steps=max_steps)
+    return Config(
+        api_key=api_key,
+        model=model,
+        fallback_models=fallbacks,
+        max_steps=max_steps,
+    )

@@ -28,6 +28,7 @@ class JarvisVisualHub:
         self.state: str = "IDLE"
         self.palette: Dict[str, str] = {"primary": "#00A8FF", "core": "#FF9E2C", "glow": "#0066CC"}
         self.theme_name: str = "海洋藍"
+        self.camera_scale: float = 1.0
         self.html_path = Path(__file__).with_name("humanoid_hud.html")
 
     def current_payload(self) -> Dict[str, Any]:
@@ -36,6 +37,7 @@ class JarvisVisualHub:
             "state": self.state,
             "theme_name": self.theme_name,
             "palette": self.palette,
+            "camera_scale": self.camera_scale,
         }
 
     async def broadcast(self, payload: Dict[str, Any]) -> None:
@@ -56,12 +58,11 @@ class JarvisVisualHub:
         if normalized not in VALID_STATES:
             return {
                 "ok": False,
-                "needs_confirmation": True,
-                "message": f"無效狀態「{new_state}」。合法狀態為：{', '.join(sorted(VALID_STATES))}。",
+                "message": f"無效狀態「{new_state}」。",
             }
         self.state = normalized
         await self.broadcast({"type": "state", "state": self.state})
-        return {"ok": True, "needs_confirmation": False, "state": self.state, "message": f"狀態已設為 {self.state}。"}
+        return {"ok": True, "state": self.state, "message": f"狀態已設為 {self.state}。"}
 
     async def set_theme_color(self, color_value: str) -> Dict[str, Any]:
         result = resolve_color(color_value)
@@ -78,15 +79,25 @@ class JarvisVisualHub:
         )
         return result
 
+    async def adjust_camera_scale(self, mode: str) -> Dict[str, Any]:
+        if mode == "larger":
+            self.camera_scale = min(1.85, round(self.camera_scale + 0.25, 2))
+        elif mode == "smaller":
+            self.camera_scale = max(0.55, round(self.camera_scale - 0.25, 2))
+        elif mode == "reset":
+            self.camera_scale = 1.0
+        await self.broadcast({"type": "camera_scale", "scale": self.camera_scale})
+        return {"ok": True, "scale": self.camera_scale, "message": f"鏡頭視窗比例已調整為 {int(self.camera_scale * 100)}%。"}
+
     async def handle_command(self, text: str) -> Dict[str, Any]:
         raw = (text or "").strip()
         if not raw:
-            return {"ok": False, "needs_confirmation": True, "message": "空白指令，請說明明確操作。"}
+            return {"ok": False, "message": "空白指令。"}
 
         if raw.startswith("__NOTIFY__:"):
             note = raw.removeprefix("__NOTIFY__:").strip()
             await self.broadcast({"type": "notify", "message": note})
-            return {"ok": True, "needs_confirmation": False, "message": note}
+            return {"ok": True, "message": note}
 
         color = extract_theme_command(raw)
         if color is not None:
@@ -96,11 +107,7 @@ class JarvisVisualHub:
         if upper in VALID_STATES:
             return await self.set_state(upper)
 
-        return {
-            "ok": False,
-            "needs_confirmation": True,
-            "message": f"無法辨識指令「{raw}」。請使用明確的顏色切換或狀態指令。",
-        }
+        return {"ok": False, "message": f"無法辨識指令「{raw}」。"}
 
     async def ws_handler(self, websocket: Any) -> None:
         self.clients.add(websocket)
@@ -110,27 +117,23 @@ class JarvisVisualHub:
                 try:
                     data = json.loads(raw_msg)
                 except json.JSONDecodeError:
-                    await websocket.send(
-                        json.dumps(
-                            {"type": "response", "ok": False, "needs_confirmation": True, "message": "JSON 格式錯誤。"},
-                            ensure_ascii=False,
-                        )
-                    )
                     continue
 
                 action = data.get("action")
-                if action == "set_theme_color":
+                if action == "camera_frame":
+                    # 高頻畫面影格直接廣播給網頁，不回傳 response 減少延遲
+                    await self.broadcast({"type": "camera_frame", "jpeg_b64": data.get("jpeg_b64", "")})
+                    continue
+                elif action == "set_theme_color":
                     res = await self.set_theme_color(str(data.get("color_value", "")))
                 elif action == "set_state":
                     res = await self.set_state(str(data.get("state", "")))
+                elif action == "camera_scale":
+                    res = await self.adjust_camera_scale(str(data.get("mode", "reset")))
                 elif action == "command":
                     res = await self.handle_command(str(data.get("text", "")))
                 else:
-                    res = {
-                        "ok": False,
-                        "needs_confirmation": True,
-                        "message": f"不支援的動作「{action}」。",
-                    }
+                    res = {"ok": False, "message": f"不支援的動作「{action}」。"}
 
                 await websocket.send(json.dumps({"type": "response", **res}, ensure_ascii=False))
         except ConnectionClosed:

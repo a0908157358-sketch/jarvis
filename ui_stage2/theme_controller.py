@@ -74,7 +74,7 @@ def resolve_color(color_value: str) -> Dict[str, Any]:
     return {
         "ok": False,
         "needs_confirmation": True,
-        "message": f"「{raw}」不在支援清單中，我不自行猜測。請指定（{supported}）或 #RRGGBB。",
+        "message": f"「{raw}」不在支援清單中，我不自行猜測。請明確指定（{supported}）或 #RRGGBB。",
     }
 
 

@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>J.A.R.V.I.S. // 精密粒子人形核心</title>
+  <title>J.A.R.V.I.S. // TACTICAL HOLOGRAM OS</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body {
-      background:
-        radial-gradient(circle at 50% 38%, rgba(16, 44, 84, 0.55) 0%, rgba(5, 11, 24, 0.92) 55%, #02050b 100%);
+      background: radial-gradient(ellipse at 50% 45%, #091d3a 0%, #030914 60%, #010308 100%);
       color: #e8f6ff;
-      font-family: "Segoe UI", "Microsoft JhengHei", sans-serif;
+      font-family: "Segoe UI", "Microsoft JhengHei", monospace;
       overflow: hidden;
       width: 100vw;
       height: 100vh;
@@ -20,58 +19,157 @@
       width: 100%;
       height: 100%;
     }
-    .scan-overlay {
+    .grid-bg {
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background:
-        repeating-linear-gradient(
-          to bottom,
-          rgba(255, 255, 255, 0.015) 0px,
-          rgba(255, 255, 255, 0.015) 1px,
-          transparent 1px,
-          transparent 4px
-        );
-      opacity: 0.55;
+      background-image:
+        linear-gradient(rgba(0, 180, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 180, 255, 0.04) 1px, transparent 1px);
+      background-size: 46px 46px;
+      mask-image: radial-gradient(circle at 50% 50%, black 35%, transparent 90%);
     }
     .top-bar {
       position: fixed;
-      top: 18px;
-      left: 24px;
-      right: 24px;
+      top: 16px;
+      left: 22px;
+      right: 22px;
       display: flex;
       justify-content: space-between;
-      gap: 12px;
+      align-items: center;
+      pointer-events: none;
+      z-index: 15;
+    }
+    .hud-chip {
+      background: rgba(5, 15, 30, 0.85);
+      border: 1px solid rgba(0, 180, 255, 0.42);
+      box-shadow: 0 0 20px rgba(0, 168, 255, 0.18), inset 0 0 12px rgba(0, 168, 255, 0.08);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      letter-spacing: 1.5px;
+      backdrop-filter: blur(8px);
+    }
+    .hud-chip .val { font-weight: 700; margin-left: 6px; }
+
+    /* 左右兩側戰術遙測面板，消除畫面空曠感 */
+    .side-panel {
+      position: fixed;
+      top: 76px;
+      width: 245px;
+      background: rgba(5, 14, 28, 0.72);
+      border: 1px solid rgba(0, 180, 255, 0.28);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 11.5px;
+      letter-spacing: 0.8px;
+      backdrop-filter: blur(6px);
       pointer-events: none;
       z-index: 10;
     }
-    .hud-panel {
-      background: rgba(6, 16, 32, 0.82);
-      border: 1px solid rgba(0, 180, 255, 0.35);
-      box-shadow: 0 0 22px rgba(0, 168, 255, 0.14), inset 0 0 14px rgba(0, 168, 255, 0.06);
-      padding: 9px 15px;
-      border-radius: 6px;
-      font-size: 12.5px;
-      letter-spacing: 1px;
-      backdrop-filter: blur(8px);
-    }
-    .hud-panel .val {
+    .side-left { left: 22px; }
+    .side-right { right: 22px; }
+    .panel-title {
+      font-size: 11px;
       font-weight: 700;
-      margin-left: 6px;
+      opacity: 0.85;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid rgba(0, 180, 255, 0.25);
     }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 7px 0 3px;
+      opacity: 0.88;
+    }
+    .bar-track {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 65%;
+      background: #00A8FF;
+      transition: width 0.4s ease, background-color 0.3s ease;
+    }
+    .wave-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 44px;
+      margin-top: 10px;
+    }
+    .wave-bar {
+      flex: 1;
+      background: #00A8FF;
+      height: 20%;
+      border-radius: 2px 2px 0 0;
+      transition: height 0.12s ease, background-color 0.3s ease;
+    }
+
+    /* 內嵌可拖曳、可縮放的鏡頭浮動視窗 */
+    #camDock {
+      position: fixed;
+      top: 76px;
+      right: 285px;
+      width: 340px;
+      background: rgba(4, 13, 27, 0.9);
+      border: 1.5px solid rgba(0, 180, 255, 0.65);
+      box-shadow: 0 0 28px rgba(0, 168, 255, 0.28);
+      border-radius: 10px;
+      overflow: hidden;
+      display: none;
+      z-index: 30;
+      backdrop-filter: blur(10px);
+    }
+    #camHeader {
+      padding: 7px 12px;
+      background: rgba(0, 168, 255, 0.18);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: move;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #camControls button {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #fff;
+      border-radius: 4px;
+      padding: 1px 7px;
+      margin-left: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    #camControls button:hover { background: rgba(255, 255, 255, 0.28); }
+    #camImg {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      background: #02060d;
+    }
+
     .status-banner {
       position: fixed;
-      bottom: 74px;
+      bottom: 72px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(6, 17, 35, 0.9);
-      border: 1px solid rgba(0, 180, 255, 0.35);
-      padding: 8px 18px;
+      background: rgba(5, 15, 32, 0.9);
+      border: 1px solid rgba(0, 180, 255, 0.4);
+      padding: 8px 20px;
       border-radius: 7px;
       font-size: 13px;
-      max-width: 92vw;
+      max-width: 90vw;
       text-align: center;
-      z-index: 10;
+      z-index: 20;
     }
     .cmd-bar {
       position: fixed;
@@ -81,47 +179,82 @@
       display: flex;
       gap: 8px;
       align-items: center;
-      background: rgba(6, 16, 33, 0.9);
-      border: 1px solid rgba(0, 180, 255, 0.35);
-      padding: 9px 13px;
+      background: rgba(5, 15, 32, 0.92);
+      border: 1px solid rgba(0, 180, 255, 0.38);
+      padding: 8px 13px;
       border-radius: 9px;
       backdrop-filter: blur(10px);
-      z-index: 10;
+      z-index: 20;
     }
-    .cmd-bar input,
-    .cmd-bar button,
-    .cmd-bar select {
-      background: rgba(12, 30, 58, 0.78);
+    .cmd-bar input, .cmd-bar button, .cmd-bar select {
+      background: rgba(12, 30, 58, 0.82);
       color: #f0f9ff;
-      border: 1px solid rgba(0, 180, 255, 0.36);
+      border: 1px solid rgba(0, 180, 255, 0.38);
       border-radius: 5px;
       padding: 6px 10px;
       font-size: 12.5px;
       outline: none;
+      user-select: text;
     }
-    .cmd-bar button {
-      cursor: pointer;
-      font-weight: 600;
-      background: rgba(0, 168, 255, 0.24);
-    }
-    .cmd-bar button:hover {
-      background: rgba(0, 168, 255, 0.42);
-    }
+    .cmd-bar button { cursor: pointer; font-weight: 600; background: rgba(0, 168, 255, 0.25); }
+    .cmd-bar button:hover { background: rgba(0, 168, 255, 0.45); }
   </style>
 </head>
 <body>
-  <div class="scan-overlay"></div>
+  <div class="grid-bg"></div>
   <canvas id="hudCanvas"></canvas>
 
   <div class="top-bar">
-    <div class="hud-panel" id="statePanel">MODE // <span class="val" id="stateText">IDLE</span></div>
-    <div class="hud-panel" id="themePanel">OPTIC // <span class="val" id="themeText">海洋藍</span></div>
+    <div class="hud-chip" id="statePanel">CORE // <span class="val" id="stateText">IDLE</span></div>
+    <div class="hud-chip">J.A.R.V.I.S. // NEURAL INTERFACE v4.2</div>
+    <div class="hud-chip" id="themePanel">OPTIC // <span class="val" id="themeText">海洋藍</span></div>
+  </div>
+
+  <!-- 左側系統遙測模組 -->
+  <div class="side-panel side-left" id="leftPanel">
+    <div class="panel-title">BIOMETRIC &amp; CORE TELEMETRY</div>
+    <div class="metric-row"><span>ARC REACTOR OUTPUT</span><span id="mReactor">98.4%</span></div>
+    <div class="bar-track"><div class="bar-fill" id="bReactor" style="width:98%"></div></div>
+    <div class="metric-row"><span>NEURAL STT ENGINE</span><span>CUDA FP16</span></div>
+    <div class="bar-track"><div class="bar-fill" id="bStt" style="width:86%"></div></div>
+    <div class="metric-row"><span>PARTICLE COHERENCE</span><span id="mCoh">99.1%</span></div>
+    <div class="bar-track"><div class="bar-fill" id="bCoh" style="width:99%"></div></div>
+    <div style="margin-top:12px; opacity:0.75; line-height:1.55;">
+      VOICE COMMANDS:<br/>
+      • 主題換成紅 / 藍 / 金 / 紫 / 綠<br/>
+      • 開啟鏡頭溝通模式<br/>
+      • 鏡頭放大一點 / 縮小一點<br/>
+      • 關閉鏡頭溝通模式
+    </div>
+  </div>
+
+  <!-- 右側聲學頻譜模組 -->
+  <div class="side-panel side-right" id="rightPanel">
+    <div class="panel-title">ACOUSTIC WAVEFORM MATRIX</div>
+    <div class="wave-bars" id="waveContainer"></div>
+    <div style="margin-top:12px; opacity:0.8; line-height:1.6;" id="visionStatusBox">
+      OPTICAL SENSOR: OFFLINE<br/>
+      DRAG &amp; ZOOM HUD: READY<br/>
+      MOUSE PARALLAX: ACTIVE
+    </div>
+  </div>
+
+  <!-- 內嵌可拖曳縮放鏡頭視窗 -->
+  <div id="camDock">
+    <div id="camHeader">
+      <span>OPTICAL FEED // 可拖曳 · 滾輪/語音縮放</span>
+      <div id="camControls">
+        <button id="btnZoomOut" title="縮小">-</button>
+        <button id="btnZoomIn" title="放大">+</button>
+      </div>
+    </div>
+    <img id="camImg" alt="Camera Stream" />
   </div>
 
   <div class="status-banner" id="bannerText">連線至 ws://127.0.0.1:8766 中...</div>
 
   <div class="cmd-bar">
-    <input id="cmdInput" type="text" size="34" placeholder="輸入：賈維斯把你的主題切換成紅色" />
+    <input id="cmdInput" type="text" size="34" placeholder="輸入：把主題換成紅色" />
     <button id="cmdBtn">送出</button>
     <select id="stateSelect">
       <option value="IDLE">IDLE</option>
@@ -140,15 +273,69 @@
     const themeText = document.getElementById("themeText");
     const statePanel = document.getElementById("statePanel");
     const themePanel = document.getElementById("themePanel");
+    const leftPanel = document.getElementById("leftPanel");
+    const rightPanel = document.getElementById("rightPanel");
     const bannerText = document.getElementById("bannerText");
     const cmdInput = document.getElementById("cmdInput");
     const cmdBtn = document.getElementById("cmdBtn");
     const stateSelect = document.getElementById("stateSelect");
     const stateBtn = document.getElementById("stateBtn");
+    const camDock = document.getElementById("camDock");
+    const camHeader = document.getElementById("camHeader");
+    const camImg = document.getElementById("camImg");
+    const visionStatusBox = document.getElementById("visionStatusBox");
 
     let currentState = "IDLE";
     let currentTheme = "海洋藍";
     let palette = { primary: "#00A8FF", core: "#FF9E2C", glow: "#0066CC" };
+    let cameraScale = 1.0;
+
+    // 產生右側 24 根聲波頻譜條
+    const waveContainer = document.getElementById("waveContainer");
+    const waveBars = [];
+    for (let i = 0; i < 24; i++) {
+      const b = document.createElement("div");
+      b.className = "wave-bar";
+      waveContainer.appendChild(b);
+      waveBars.push(b);
+    }
+
+    // 內嵌鏡頭視窗拖曳與縮放邏輯
+    let isDragging = false, dragOffX = 0, dragOffY = 0;
+    camHeader.addEventListener("mousedown", (e) => {
+      if (e.target.tagName === "BUTTON") return;
+      isDragging = true;
+      const rect = camDock.getBoundingClientRect();
+      dragOffX = e.clientX - rect.left;
+      dragOffY = e.clientY - rect.top;
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      camDock.style.right = "auto";
+      camDock.style.left = Math.max(10, Math.min(window.innerWidth - camDock.offsetWidth - 10, e.clientX - dragOffX)) + "px";
+      camDock.style.top = Math.max(10, Math.min(window.innerHeight - camDock.offsetHeight - 10, e.clientY - dragOffY)) + "px";
+    });
+    window.addEventListener("mouseup", () => { isDragging = false; });
+
+    function applyCameraScale(scale) {
+      cameraScale = Math.max(0.55, Math.min(1.85, scale));
+      camDock.style.width = Math.round(340 * cameraScale) + "px";
+    }
+    camDock.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      applyCameraScale(cameraScale + (e.deltaY < 0 ? 0.12 : -0.12));
+    });
+    document.getElementById("btnZoomIn").addEventListener("click", () => applyCameraScale(cameraScale + 0.2));
+    document.getElementById("btnZoomOut").addEventListener("click", () => applyCameraScale(cameraScale - 0.2));
+
+    // 滑鼠互動視差角度
+    let targetMouseYaw = 0, targetMousePitch = 0, mouseYaw = 0, mousePitch = 0;
+    window.addEventListener("mousemove", (e) => {
+      const nx = (e.clientX / window.innerWidth) * 2 - 1;
+      const ny = (e.clientY / window.innerHeight) * 2 - 1;
+      targetMouseYaw = nx * 0.42;
+      targetMousePitch = ny * 0.16;
+    });
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -166,108 +353,125 @@
     }
     function rgba(hex, alpha) {
       const { r, g, b } = parseHex(hex);
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
     }
 
-    // 精細解剖骨架節點（頭部、眼眶/護目線、下顎、頸部、鎖骨、胸廓、脊椎、肩關節、手臂、核心）
-    const skeletonBones = [
-      // 頭部外輪廓與下顎
-      [[-26, -198], [0, -214], [26, -198]],
-      [[26, -198], [34, -172], [28, -148]],
-      [[28, -148], [16, -132], [0, -126]],
-      [[0, -126], [-16, -132], [-28, -148]],
-      [[-28, -148], [-34, -172], [-26, -198]],
-      // 護目 visor 與中線
-      [[-24, -174], [-8, -177], [0, -174], [8, -177], [24, -174]],
-      [[0, -208], [0, -130]],
-      // 頸部與鎖骨
-      [[-12, -125], [-14, -104]],
-      [[12, -125], [14, -104]],
-      [[-14, -104], [-58, -96], [-108, -78]],
-      [[14, -104], [58, -96], [108, -78]],
-      // 胸廓與肋骨線
-      [[-108, -78], [-82, -12], [-56, 42]],
-      [[108, -78], [82, -12], [56, 42]],
-      [[-56, 42], [0, 56], [56, 42]],
-      [[0, -104], [0, 52]],
-      [[-68, -56], [0, -50], [68, -56]],
-      [[-62, -24], [0, -18], [62, -24]],
-      [[-54, 10], [0, 14], [54, 10]],
-      // 左臂（肩 -> 肘 -> 腕 -> 掌）
-      [[-108, -78], [-136, -24], [-152, 34]],
-      [[-152, 34], [-164, 88], [-168, 128]],
-      // 右臂（肩 -> 肘 -> 腕 -> 掌）
-      [[108, -78], [136, -24], [152, 34]],
-      [[152, 34], [164, 88], [168, 128]]
-    ];
-
-    function buildDetailedParticles(total = 3600) {
+    // 建構 6,500 顆高密度 3D 全像戰甲粒子 + 能量流動軌跡
+    function build3DHumanoid() {
       const pts = [];
-      for (let i = 0; i < total; i++) {
-        const r = Math.random();
-        let bx = 0, by = 0, z = 0.4 + Math.random() * 0.6, kind = "shell";
-
-        if (r < 0.22) {
-          // 頭部精密輪廓與顱內網格
-          kind = "head";
-          const ang = Math.random() * Math.PI * 2;
-          const rim = Math.random() < 0.72;
-          const rx = rim ? 31 + (Math.random() - 0.5) * 4 : Math.random() * 25;
-          const ry = rim ? 42 + (Math.random() - 0.5) * 5 : Math.random() * 36;
-          bx = Math.cos(ang) * rx;
-          by = -170 + Math.sin(ang) * ry * (Math.sin(ang) > 0 ? 0.92 : 1.05);
-        } else if (r < 0.56) {
-          // 軀幹肌肉/裝甲線條分布
-          kind = "torso";
-          const yNorm = Math.random(); // 0: 鎖骨, 1: 腰腹
-          by = -100 + yNorm * 152;
-          const halfW = 104 * (1 - yNorm * 0.45) + Math.sin(yNorm * Math.PI) * 14;
-          const edge = Math.pow(Math.random(), 0.45);
-          const side = Math.random() < 0.5 ? -1 : 1;
-          bx = side * halfW * edge;
-        } else if (r < 0.78) {
-          // 左右雙臂分段
-          kind = "arms";
-          const side = i % 2 === 0 ? 1 : -1;
-          const t = Math.random();
-          if (t < 0.5) {
-            const u = t / 0.5;
-            bx = side * (108 + u * 44) + (Math.random() - 0.5) * 10;
-            by = -78 + u * 112 + (Math.random() - 0.5) * 8;
-          } else {
-            const u = (t - 0.5) / 0.5;
-            bx = side * (152 + u * 16) + (Math.random() - 0.5) * 8;
-            by = 34 + u * 94 + (Math.random() - 0.5) * 8;
-          }
-        } else if (r < 0.88) {
-          // 胸核周圍能量環粒子
-          kind = "coreRing";
-          const ang = Math.random() * Math.PI * 2;
-          const rad = 26 + (Math.random() - 0.5) * 8;
-          bx = Math.cos(ang) * rad;
-          by = -36 + Math.sin(ang) * rad;
-        } else {
-          // 背景資料微粒
-          kind = "field";
-          const ang = Math.random() * Math.PI * 2;
-          const dist = 165 + Math.random() * 270;
-          bx = Math.cos(ang) * dist * 1.3;
-          by = -55 + Math.sin(ang) * dist * 0.85;
-          z = 0.2 + Math.random() * 0.5;
-        }
-
+      const addPt = (x, y, z, kind, size = 1.35, alpha = 0.75) => {
         pts.push({
-          bx, by, x: bx, y: by, z, kind,
+          bx: x, by: y, bz: z,
+          kind,
           phase: Math.random() * Math.PI * 2,
-          freq: 0.7 + Math.random() * 1.5,
-          size: kind === "field" ? 0.9 + Math.random() * 1.2 : 1.0 + Math.random() * 1.85,
-          alpha: kind === "field" ? 0.16 + Math.random() * 0.28 : 0.45 + Math.random() * 0.5
+          freq: 0.9 + Math.random() * 1.6,
+          size,
+          alpha
         });
+      };
+
+      // 1. 戰甲頭盔（3D 曲面 + 面甲中線 + 耳部感測器）
+      for (let i = 0; i < 1150; i++) {
+        const u = Math.random() * Math.PI * 2;
+        const v = Math.acos(2 * Math.random() - 1);
+        const rx = 33, ry = 45, rz = 37;
+        let x = rx * Math.sin(v) * Math.cos(u);
+        let y = ry * Math.cos(v);
+        let z = rz * Math.sin(v) * Math.sin(u);
+        if (y > 8) {
+          const taper = 1 - ((y - 8) / 37) * 0.36;
+          x *= taper;
+          z *= taper;
+        }
+        const isPlate = Math.abs(Math.sin(u * 3)) > 0.92 || Math.abs(y + 6) < 2.0 || (Math.abs(x) < 2.2 && z > 0);
+        addPt(x, y - 182, z, "head", isPlate ? 1.75 : 1.15, isPlate ? 0.95 : 0.56);
       }
+
+      // 雙眼發光護目鏡
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 55; i++) {
+          const t = i / 54;
+          addPt(side * (6 + t * 15), -186 + t * 2.5, 33 - t * 3, "visor", 1.85, 0.98);
+        }
+      }
+
+      // 2. 頸部裝甲環
+      for (let i = 0; i < 280; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const y = -136 + Math.random() * 28;
+        const r = 18 + Math.sin((y + 136) / 28 * Math.PI) * 3.5;
+        addPt(Math.cos(ang) * r, y, Math.sin(ang) * r * 0.92, "neck", 1.2, 0.58);
+      }
+
+      // 3. 胸甲、背翼輪廓與腹肌裝甲板
+      for (let i = 0; i < 2450; i++) {
+        const yn = Math.random();
+        const y = -108 + yn * 170;
+        const ang = Math.random() * Math.PI * 2;
+        const widthProfile = yn < 0.38
+          ? 82 + Math.sin(yn / 0.38 * Math.PI) * 20
+          : 82 * (1 - (yn - 0.38) * 0.38);
+        const depthProfile = yn < 0.35
+          ? 44 + Math.sin(yn / 0.35 * Math.PI) * 14
+          : 44 * (1 - (yn - 0.35) * 0.32);
+
+        const x = Math.cos(ang) * widthProfile;
+        const z = Math.sin(ang) * depthProfile;
+
+        const seam =
+          Math.abs(y + 52) < 2.2 ||
+          Math.abs(y + 12) < 2.0 ||
+          Math.abs(y - 24) < 2.0 ||
+          (Math.abs(x) < 3.0 && z > 0);
+        addPt(x, y, z, "torso", seam ? 1.8 : 1.25, seam ? 0.94 : 0.56);
+      }
+
+      // 4. 方舟反應爐（四層旋轉同心光環）
+      for (let ring = 0; ring < 4; ring++) {
+        const rad = 10 + ring * 6.8;
+        const count = 95 + ring * 45;
+        for (let i = 0; i < count; i++) {
+          const a = (i / count) * Math.PI * 2;
+          addPt(Math.cos(a) * rad, -46 + Math.sin(a) * rad, 51 - ring * 1.3, "core", ring === 0 ? 2.0 : 1.5, 0.96);
+        }
+      }
+
+      // 5. 雙肩甲與機械臂
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 320; i++) {
+          const u = Math.random() * Math.PI * 2;
+          const v = Math.random() * Math.PI * 0.78;
+          const r = 29;
+          addPt(
+            side * 100 + Math.cos(u) * Math.sin(v) * r,
+            -92 - Math.cos(v) * r * 0.85,
+            Math.sin(u) * Math.sin(v) * r,
+            "arm", 1.4, 0.75
+          );
+        }
+        for (let i = 0; i < 520; i++) {
+          const t = Math.random();
+          const ang = Math.random() * Math.PI * 2;
+          const r = 19 * (1 - t * 0.28);
+          const cxArm = side * (108 + t * 36);
+          const cyArm = -82 + t * 190;
+          const czArm = Math.sin(t * Math.PI) * 16;
+          addPt(cxArm + Math.cos(ang) * r, cyArm, czArm + Math.sin(ang) * r, "arm", 1.25, 0.65);
+        }
+      }
+
+      // 6. 螺旋上升能量粒子流（讓畫面生動不死板）
+      for (let i = 0; i < 750; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const dist = 140 + Math.random() * 260;
+        const y = -230 + Math.random() * 390;
+        addPt(Math.cos(ang) * dist, y, Math.sin(ang) * dist, "spiral", 1.2, 0.48);
+      }
+
       return pts;
     }
 
-    const particles = buildDetailedParticles(3600);
+    const particles = build3DHumanoid();
 
     function syncVisualMeta() {
       stateText.textContent = currentState;
@@ -275,16 +479,29 @@
       const activeCol = currentState === "CAMERA_MODE" ? palette.core : palette.primary;
       stateText.style.color = activeCol;
       themeText.style.color = palette.primary;
-      statePanel.style.borderColor = rgba(activeCol, 0.6);
-      themePanel.style.borderColor = rgba(palette.primary, 0.55);
+
+      for (const el of [statePanel, themePanel, leftPanel, rightPanel, camDock]) {
+        el.style.borderColor = rgba(palette.primary, 0.45);
+      }
+      document.querySelectorAll(".bar-fill, .wave-bar").forEach((el) => {
+        el.style.backgroundColor = palette.primary;
+      });
       stateSelect.value = currentState;
+
+      if (currentState === "CAMERA_MODE") {
+        camDock.style.display = "block";
+        visionStatusBox.innerHTML = "OPTICAL SENSOR: <b style='color:#00ff9d'>ACTIVE STREAM</b><br/>DRAG HEADER TO MOVE<br/>SCROLL OR SAY ZOOM";
+      } else {
+        camDock.style.display = "none";
+        visionStatusBox.innerHTML = "OPTICAL SENSOR: OFFLINE<br/>DRAG &amp; ZOOM HUD: READY<br/>MOUSE PARALLAX: ACTIVE";
+      }
     }
 
     let ws = null;
     function connectSocket() {
       ws = new WebSocket("ws://127.0.0.1:8766");
       ws.onopen = () => {
-        bannerText.textContent = "已連線至全像核心，待機中。";
+        bannerText.textContent = "全像神經核心已連線，隨時待命。";
       };
       ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
@@ -292,6 +509,7 @@
           currentState = msg.state || "IDLE";
           currentTheme = msg.theme_name || "海洋藍";
           if (msg.palette) palette = { ...palette, ...msg.palette };
+          if (msg.camera_scale) applyCameraScale(msg.camera_scale);
           syncVisualMeta();
         } else if (msg.type === "theme") {
           currentTheme = msg.theme_name || currentTheme;
@@ -301,19 +519,18 @@
         } else if (msg.type === "state") {
           currentState = msg.state || currentState;
           syncVisualMeta();
+        } else if (msg.type === "camera_frame" && msg.jpeg_b64) {
+          camDock.style.display = "block";
+          camImg.src = "data:image/jpeg;base64," + msg.jpeg_b64;
+        } else if (msg.type === "camera_scale" && msg.scale) {
+          applyCameraScale(msg.scale);
         } else if (msg.type === "notify") {
           bannerText.textContent = msg.message || "";
         } else if (msg.type === "response") {
           bannerText.textContent = msg.message || "";
-          bannerText.style.borderColor = msg.ok ? rgba(palette.primary, 0.6) : "rgba(255, 82, 82, 0.75)";
         }
       };
-      ws.onerror = () => {
-        bannerText.textContent = "尚未連上 ws://127.0.0.1:8766。";
-      };
-      ws.onclose = () => {
-        setTimeout(connectSocket, 2000);
-      };
+      ws.onclose = () => { setTimeout(connectSocket, 1500); };
     }
     connectSocket();
 
@@ -324,86 +541,89 @@
       cmdInput.value = "";
     }
     cmdBtn.addEventListener("click", submitCmd);
-    cmdInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") submitCmd();
-    });
+    cmdInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitCmd(); });
     stateBtn.addEventListener("click", () => {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       ws.send(JSON.stringify({ action: "set_state", state: stateSelect.value }));
     });
 
-    function drawSkeleton(cx, cy, time) {
+    // 底部全像投影基座光圈
+    function drawPedestal(cx, cy, time) {
       ctx.save();
-      ctx.strokeStyle = rgba(palette.primary, 0.24);
-      ctx.lineWidth = 1.1;
-      for (const chain of skeletonBones) {
+      ctx.translate(cx, cy + 128);
+      ctx.scale(1, 0.28);
+
+      for (let r = 0; r < 3; r++) {
+        const radius = 125 + r * 42 + Math.sin(time * 2 + r) * 5;
+        ctx.strokeStyle = rgba(r === 0 ? palette.core : palette.primary, 0.45 - r * 0.1);
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        for (let i = 0; i < chain.length; i++) {
-          const [px, py] = chain[i];
-          const sx = cx + px + Math.sin(time * 1.4 + py * 0.03) * 1.4;
-          const sy = cy + py;
-          if (i === 0) ctx.moveTo(sx, sy);
-          else ctx.lineTo(sx, sy);
-        }
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.stroke();
       }
-
-      // 雙眼高光節點
-      const eyePulse = 0.75 + 0.25 * Math.sin(time * 5);
-      for (const ex of [-11, 11]) {
-        ctx.fillStyle = rgba(palette.core, eyePulse);
-        ctx.beginPath();
-        ctx.arc(cx + ex, cy - 175, 2.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
       ctx.restore();
+
+      // 垂直投影光柱
+      const beam = ctx.createLinearGradient(cx, cy + 128, cx, cy - 210);
+      beam.addColorStop(0, rgba(palette.primary, 0.16));
+      beam.addColorStop(1, "transparent");
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(cx - 135, cy + 128);
+      ctx.lineTo(cx + 135, cy + 128);
+      ctx.lineTo(cx + 75, cy - 210);
+      ctx.lineTo(cx - 75, cy - 210);
+      ctx.closePath();
+      ctx.fill();
     }
 
     function drawTechRings(cx, cy, time) {
       ctx.save();
-      ctx.translate(cx, cy - 36);
+      ctx.translate(cx, cy - 46);
 
-      // 外圈刻度環
+      // 外圈多段戰術刻度環
       ctx.save();
-      ctx.rotate(time * (currentState === "THINKING" ? 1.5 : 0.28));
-      ctx.strokeStyle = rgba(palette.primary, 0.45);
-      ctx.lineWidth = 1.6;
+      ctx.rotate(time * (currentState === "THINKING" ? 1.6 : 0.28));
+      ctx.strokeStyle = rgba(palette.primary, 0.42);
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(0, 0, 232, 0, Math.PI * 2);
+      ctx.arc(0, 0, 248, 0, Math.PI * 2);
       ctx.stroke();
 
-      for (let i = 0; i < 24; i++) {
-        const a = (i / 24) * Math.PI * 2;
-        const rInner = 225;
-        const rOuter = i % 4 === 0 ? 240 : 233;
+      for (let i = 0; i < 48; i++) {
+        const a = (i / 48) * Math.PI * 2;
+        const r1 = 240;
+        const r2 = i % 4 === 0 ? 256 : 247;
         ctx.beginPath();
-        ctx.moveTo(Math.cos(a) * rInner, Math.sin(a) * rInner);
-        ctx.lineTo(Math.cos(a) * rOuter, Math.sin(a) * rOuter);
+        ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+        ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
         ctx.stroke();
       }
       ctx.restore();
 
-      // 內圈分段弧線
+      // 中圈反向動態弧線
       ctx.save();
-      ctx.rotate(-time * (currentState === "SPEAKING" ? 1.9 : 0.6));
-      ctx.strokeStyle = rgba(palette.core, 0.55);
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.arc(0, 0, 196, 0.15, 1.25);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, 0, 196, Math.PI + 0.15, Math.PI + 1.25);
-      ctx.stroke();
+      ctx.rotate(-time * (currentState === "SPEAKING" ? 2.1 : 0.65));
+      ctx.strokeStyle = rgba(palette.core, 0.58);
+      ctx.lineWidth = 2.0;
+      for (let k = 0; k < 4; k++) {
+        const base = (k * Math.PI) / 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 206, base + 0.14, base + 0.92);
+        ctx.stroke();
+      }
       ctx.restore();
 
-      // 垂直掃描光束
-      const scanY = Math.sin(time * 1.5) * 185;
-      const grad = ctx.createLinearGradient(-210, scanY, 210, scanY);
-      grad.addColorStop(0, "transparent");
-      grad.addColorStop(0.5, rgba(palette.primary, 0.35));
-      grad.addColorStop(1, "transparent");
-      ctx.fillStyle = grad;
-      ctx.fillRect(-210, scanY - 1, 420, 2);
+      // 說話或思考時釋放擴散能量波紋
+      if (currentState === "SPEAKING" || currentState === "THINKING" || currentState === "LISTENING") {
+        const pulseR = ((time * 130) % 240) + 30;
+        const pulseAlpha = Math.max(0, 1 - pulseR / 270) * 0.45;
+        ctx.strokeStyle = rgba(currentState === "SPEAKING" ? palette.core : palette.primary, pulseAlpha);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       ctx.restore();
     }
@@ -414,59 +634,91 @@
       const w = window.innerWidth;
       const h = window.innerHeight;
       const cx = w / 2;
-      const cy = h / 2 + 28;
+      const cy = h / 2 + 26;
+
+      // 平滑追蹤滑鼠視差 + 自動呼吸擺動
+      mouseYaw += (targetMouseYaw - mouseYaw) * 0.08;
+      mousePitch += (targetMousePitch - mousePitch) * 0.08;
+      const yaw = Math.sin(clock * 0.6) * 0.22 + mouseYaw;
+      const cosY = Math.cos(yaw);
+      const sinY = Math.sin(yaw);
+      const fov = 560;
+
+      // 更新右側動態聲波頻譜條
+      for (let i = 0; i < waveBars.length; i++) {
+        let level = 14 + Math.sin(clock * 3 + i * 0.5) * 8;
+        if (currentState === "SPEAKING") level = 25 + Math.abs(Math.sin(clock * 14 + i * 0.7)) * 72;
+        else if (currentState === "LISTENING") level = 20 + Math.abs(Math.sin(clock * 8 + i * 0.4)) * 48;
+        else if (currentState === "THINKING") level = 30 + Math.abs(Math.cos(clock * 11 + i * 0.6)) * 55;
+        waveBars[i].style.height = Math.min(100, Math.max(8, level)) + "%";
+      }
 
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(3, 8, 18, 0.34)";
+      ctx.fillStyle = "rgba(2, 6, 15, 0.34)";
       ctx.fillRect(0, 0, w, h);
 
+      drawPedestal(cx, cy, clock);
       drawTechRings(cx, cy, clock);
-      drawSkeleton(cx, cy, clock);
 
-      let speed = 1.0;
-      let amp = 2.6;
-      let coreScale = 1.0;
+      let speed = 1.0, amp = 1.4, coreScale = 1.0;
       if (currentState === "LISTENING") {
-        speed = 1.6; amp = 5.2; coreScale = 1.2 + Math.sin(clock * 8) * 0.2;
+        speed = 1.6; amp = 2.8; coreScale = 1.2 + Math.sin(clock * 8) * 0.2;
       } else if (currentState === "THINKING") {
-        speed = 2.7; amp = 7.5; coreScale = 1.15 + Math.cos(clock * 12) * 0.25;
+        speed = 2.6; amp = 4.2; coreScale = 1.18 + Math.cos(clock * 12) * 0.24;
       } else if (currentState === "SPEAKING") {
-        speed = 2.0; amp = 6.5; coreScale = 1.3 + Math.abs(Math.sin(clock * 13)) * 0.45;
+        speed = 2.0; amp = 3.6; coreScale = 1.32 + Math.abs(Math.sin(clock * 14)) * 0.45;
       } else if (currentState === "CAMERA_MODE") {
-        speed = 1.3; amp = 3.2; coreScale = 1.15;
+        speed = 1.3; amp = 1.9; coreScale = 1.16;
       } else {
-        coreScale = 1.0 + Math.sin(clock * 2.4) * 0.1;
+        coreScale = 1.0 + Math.sin(clock * 2.4) * 0.09;
       }
 
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
+
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
-        const ox = Math.sin(clock * speed * p.freq + p.phase) * amp * p.z;
-        const oy = Math.cos(clock * speed * p.freq * 1.1 + p.phase) * amp * p.z;
-        const tx = cx + p.bx + ox;
-        const ty = cy + p.by + oy;
-        p.x += (tx - p.x) * 0.14;
-        p.y += (ty - p.y) * 0.14;
+        let x0 = p.bx, y0 = p.by, z0 = p.bz;
 
-        const flicker = 0.7 + 0.3 * Math.sin(clock * 3.5 + p.phase);
-        const col = p.kind === "coreRing" ? palette.core : palette.primary;
-        ctx.fillStyle = rgba(col, p.alpha * flicker);
+        if (p.kind === "spiral") {
+          const spin = clock * 0.65 + p.phase;
+          const rad = Math.hypot(p.bx, p.bz);
+          x0 = Math.cos(spin) * rad;
+          z0 = Math.sin(spin) * rad;
+          y0 = ((p.by + 230 - clock * 28) % 390 + 390) % 390 - 230;
+        } else {
+          x0 += Math.sin(clock * speed * p.freq + p.phase) * amp;
+          y0 += Math.cos(clock * speed * p.freq * 1.1 + p.phase) * amp;
+        }
+
+        const rx3 = x0 * cosY - z0 * sinY;
+        const rz3 = x0 * sinY + z0 * cosY;
+        const scale = fov / (fov + rz3 + 120);
+
+        const sx = cx + rx3 * scale;
+        const sy = cy + (y0 + mousePitch * 45) * scale;
+
+        const depthFactor = Math.max(0.28, Math.min(1.3, (78 - rz3) / 110 + 0.56));
+        const flicker = 0.78 + 0.22 * Math.sin(clock * 4.0 + p.phase);
+        const isCoreOrVisor = p.kind === "core" || p.kind === "visor";
+        const col = isCoreOrVisor ? palette.core : palette.primary;
+
+        ctx.fillStyle = rgba(col, p.alpha * depthFactor * flicker);
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * (0.7 + 0.35 * p.z), 0, Math.PI * 2);
+        ctx.arc(sx, sy, p.size * scale * (0.75 + 0.32 * depthFactor), 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // 胸口反應爐核心光暈
-      const rCore = 24 * coreScale;
-      const gCore = ctx.createRadialGradient(cx, cy - 36, 1, cx, cy - 36, rCore * 3);
-      gCore.addColorStop(0, "rgba(255,255,255,0.95)");
-      gCore.addColorStop(0.3, rgba(palette.core, 0.88));
-      gCore.addColorStop(0.7, rgba(palette.core, 0.2));
+      // 方舟反應爐高能光暈
+      const rCore = 23 * coreScale;
+      const gCore = ctx.createRadialGradient(cx, cy - 46 + mousePitch * 45, 1, cx, cy - 46 + mousePitch * 45, rCore * 3.2);
+      gCore.addColorStop(0, "rgba(255, 255, 255, 0.98)");
+      gCore.addColorStop(0.28, rgba(palette.core, 0.9));
+      gCore.addColorStop(0.68, rgba(palette.core, 0.24));
       gCore.addColorStop(1, "transparent");
       ctx.fillStyle = gCore;
       ctx.beginPath();
-      ctx.arc(cx, cy - 36, rCore * 3, 0, Math.PI * 2);
+      ctx.arc(cx, cy - 46 + mousePitch * 45, rCore * 3.2, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
