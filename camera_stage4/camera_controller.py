@@ -12,9 +12,9 @@ from PIL import Image
 
 class OnDemandCamera:
     """
-    按需開啟的純背景攝影機控制器：
-    - 預設關閉，不佔用裝置。
-    - 開啟時在背景高速擷取畫面，提供即時 JPEG bytes 與 Base64 串流給 HUD 內嵌浮動視窗。
+    低資源佔用背景攝影機控制器：
+    - 擷取頻率限制在約 12 FPS，大幅降低 CPU/GPU 負擔，避免與 Whisper CUDA 搶資源。
+    - 開啟時預讀首幀完成曝光暖機，首次發問立即秒回。
     """
 
     def __init__(self, camera_index: int = 0) -> None:
@@ -33,7 +33,7 @@ class OnDemandCamera:
                     ret, raw = self.cap.read()
                     if ret and raw is not None:
                         self._latest_frame = raw
-            time.sleep(0.03)  # 約 30 FPS 背景緩衝
+            time.sleep(0.08)  # 約 12.5 FPS，不搶占主執行緒與 GPU 資源
 
     def open_camera(self) -> tuple[bool, str]:
         if self.active and self.cap is not None and self.cap.isOpened():
@@ -46,11 +46,20 @@ class OnDemandCamera:
 
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        first_frame = None
+        for _ in range(6):
+            ret, raw = cap.read()
+            if ret and raw is not None:
+                first_frame = raw
+                break
+            time.sleep(0.03)
 
         with self._lock:
             self.cap = cap
             self.active = True
-            self._latest_frame = None
+            self._latest_frame = first_frame
 
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._capture_loop, daemon=True)
@@ -77,17 +86,13 @@ class OnDemandCamera:
 
         return "已關閉攝影機並釋放資源。" if was_active else "目前鏡頭已關閉。"
 
-    def capture_jpeg_bytes(self, max_size: tuple[int, int] = (512, 384), quality: int = 72) -> Optional[bytes]:
+    def capture_jpeg_bytes(self, max_size: tuple[int, int] = (480, 360), quality: int = 68) -> Optional[bytes]:
         if not self.active:
             return None
         frame = None
         with self._lock:
             if self._latest_frame is not None:
                 frame = self._latest_frame.copy()
-            elif self.cap is not None and self.cap.isOpened():
-                ret, raw = self.cap.read()
-                if ret and raw is not None:
-                    frame = raw
         if frame is None:
             return None
 
@@ -99,7 +104,8 @@ class OnDemandCamera:
         return buf.getvalue()
 
     def capture_base64_preview(self) -> Optional[str]:
-        jpeg = self.capture_jpeg_bytes(max_size=(400, 300), quality=62)
+        # 輕量預覽串流（320x240, quality 52），每幀僅約 8~12KB，WebSocket 零阻塞
+        jpeg = self.capture_jpeg_bytes(max_size=(320, 240), quality=52)
         if jpeg is None:
             return None
         return base64.b64encode(jpeg).decode("ascii")

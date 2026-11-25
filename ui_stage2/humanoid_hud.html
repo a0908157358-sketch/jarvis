@@ -3,728 +3,1239 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>J.A.R.V.I.S. // TACTICAL HOLOGRAM OS</title>
+  <title>J.A.R.V.I.S. // 全像粒子介面</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-    body {
-      background: radial-gradient(ellipse at 50% 45%, #091d3a 0%, #030914 60%, #010308 100%);
-      color: #e8f6ff;
-      font-family: "Segoe UI", "Microsoft JhengHei", monospace;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
     }
-    canvas#hudCanvas {
-      display: block;
+    html, body {
       width: 100%;
       height: 100%;
+      overflow: hidden;
+      background-color: #030b17;
+      color: #bceeff;
+      font-family: "Segoe UI", "Microsoft JhengHei", "Roboto", monospace;
     }
-    .grid-bg {
+    #gl-wrap {
       position: fixed;
       inset: 0;
-      pointer-events: none;
-      background-image:
-        linear-gradient(rgba(0, 180, 255, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 180, 255, 0.04) 1px, transparent 1px);
-      background-size: 46px 46px;
-      mask-image: radial-gradient(circle at 50% 50%, black 35%, transparent 90%);
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
     }
-    .top-bar {
+
+    /* 輕量開機光束：零模糊濾鏡、零重繪負擔 */
+    #bootFlash {
       position: fixed;
-      top: 16px;
-      left: 22px;
-      right: 22px;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 45%, rgba(255, 184, 77, 0.12), rgba(3, 11, 23, 0.58) 68%, #020812 100%);
+      opacity: 1;
+      transition: opacity 0.9s ease;
+    }
+    #bootFlash.done {
+      opacity: 0;
+    }
+    .boot-line {
+      width: min(340px, 72vw);
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #ffd166, #5ce1ff, #ffffff, #5ce1ff, #ffd166, transparent);
+      box-shadow: 0 0 14px rgba(92, 225, 255, 0.75);
+      transform: scaleX(0.15);
+      transition: transform 1.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.65s ease;
+    }
+    #bootFlash.expand .boot-line {
+      transform: scaleX(1);
+    }
+    #bootFlash.done .boot-line {
+      opacity: 0;
+    }
+    .boot-label {
+      margin-top: 12px;
+      font-size: 12px;
+      letter-spacing: 6px;
+      color: #9beeff;
+      text-shadow: 0 0 12px rgba(24, 216, 255, 0.55);
+      transition: opacity 0.65s ease;
+    }
+    #bootFlash.done .boot-label {
+      opacity: 0;
+    }
+
+    /* 頂部列 */
+    .top-header {
+      position: fixed;
+      top: 14px;
+      left: 18px;
+      right: 18px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      pointer-events: none;
-      z-index: 15;
-    }
-    .hud-chip {
-      background: rgba(5, 15, 30, 0.85);
-      border: 1px solid rgba(0, 180, 255, 0.42);
-      box-shadow: 0 0 20px rgba(0, 168, 255, 0.18), inset 0 0 12px rgba(0, 168, 255, 0.08);
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 12.5px;
-      letter-spacing: 1.5px;
-      backdrop-filter: blur(8px);
-    }
-    .hud-chip .val { font-weight: 700; margin-left: 6px; }
-
-    /* 左右兩側戰術遙測面板，消除畫面空曠感 */
-    .side-panel {
-      position: fixed;
-      top: 76px;
-      width: 245px;
-      background: rgba(5, 14, 28, 0.72);
-      border: 1px solid rgba(0, 180, 255, 0.28);
-      border-radius: 8px;
-      padding: 14px;
-      font-size: 11.5px;
-      letter-spacing: 0.8px;
-      backdrop-filter: blur(6px);
+      align-items: flex-start;
       pointer-events: none;
       z-index: 10;
     }
-    .side-left { left: 22px; }
-    .side-right { right: 22px; }
-    .panel-title {
+    .top-chip {
+      background: rgba(5, 18, 34, 0.72);
+      border: 1px solid rgba(0, 188, 255, 0.35);
+      border-radius: 4px;
+      padding: 6px 12px;
       font-size: 11px;
+      letter-spacing: 1px;
+      backdrop-filter: blur(6px);
+    }
+    .top-chip .accent {
+      color: #5ce1ff;
       font-weight: 700;
-      opacity: 0.85;
-      margin-bottom: 10px;
-      padding-bottom: 5px;
-      border-bottom: 1px solid rgba(0, 180, 255, 0.25);
+      margin-left: 4px;
     }
-    .metric-row {
-      display: flex;
-      justify-content: space-between;
-      margin: 7px 0 3px;
-      opacity: 0.88;
+    .brand-center {
+      text-align: center;
+      margin-top: -2px;
     }
-    .bar-track {
-      width: 100%;
-      height: 5px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 3px;
-      overflow: hidden;
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 8px;
+      color: #9ae8ff;
+      text-shadow: 0 0 16px rgba(0, 195, 255, 0.45);
     }
-    .bar-fill {
-      height: 100%;
-      width: 65%;
-      background: #00A8FF;
-      transition: width 0.4s ease, background-color 0.3s ease;
-    }
-    .wave-bars {
-      display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      height: 44px;
-      margin-top: 10px;
-    }
-    .wave-bar {
-      flex: 1;
-      background: #00A8FF;
-      height: 20%;
-      border-radius: 2px 2px 0 0;
-      transition: height 0.12s ease, background-color 0.3s ease;
+    .brand-sub {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(135, 215, 245, 0.55);
+      margin-top: 2px;
     }
 
-    /* 內嵌可拖曳、可縮放的鏡頭浮動視窗 */
-    #camDock {
+    /* 左右側科幻 HUD 資訊卡 */
+    .side-panel {
       position: fixed;
-      top: 76px;
-      right: 285px;
-      width: 340px;
-      background: rgba(4, 13, 27, 0.9);
-      border: 1.5px solid rgba(0, 180, 255, 0.65);
-      box-shadow: 0 0 28px rgba(0, 168, 255, 0.28);
-      border-radius: 10px;
-      overflow: hidden;
-      display: none;
-      z-index: 30;
-      backdrop-filter: blur(10px);
+      width: 228px;
+      background: rgba(5, 18, 34, 0.68);
+      border: 1px solid rgba(0, 180, 255, 0.28);
+      border-radius: 5px;
+      padding: 10px 12px;
+      font-size: 11px;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      z-index: 8;
     }
-    #camHeader {
-      padding: 7px 12px;
-      background: rgba(0, 168, 255, 0.18);
-      font-size: 12px;
+    .panel-title {
+      font-size: 10px;
       font-weight: 700;
-      letter-spacing: 1px;
-      cursor: move;
+      letter-spacing: 2px;
+      color: #55d6ff;
+      border-bottom: 1px solid rgba(0, 180, 255, 0.2);
+      padding-bottom: 5px;
+      margin-bottom: 8px;
+    }
+    .kv-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      margin-bottom: 5px;
+      font-size: 11px;
     }
-    #camControls button {
-      background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: #fff;
-      border-radius: 4px;
-      padding: 1px 7px;
-      margin-left: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    #camControls button:hover { background: rgba(255, 255, 255, 0.28); }
-    #camImg {
+    .kv-row span:first-child { color: rgba(165, 215, 238, 0.72); }
+    .kv-row span:last-child { color: #7ce6ff; font-weight: 600; }
+
+    .panel-sys { top: 74px; left: 18px; }
+    .panel-audio { top: 218px; left: 18px; }
+    .panel-telemetry { top: 74px; right: 18px; }
+    .panel-log { top: 248px; right: 18px; }
+
+    #waveCanvas {
       display: block;
       width: 100%;
-      height: auto;
-      aspect-ratio: 4 / 3;
-      object-fit: cover;
-      background: #02060d;
+      height: 56px;
+      margin-top: 2px;
     }
 
-    .status-banner {
-      position: fixed;
-      bottom: 72px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(5, 15, 32, 0.9);
-      border: 1px solid rgba(0, 180, 255, 0.4);
-      padding: 8px 20px;
-      border-radius: 7px;
-      font-size: 13px;
-      max-width: 90vw;
-      text-align: center;
-      z-index: 20;
+    .log-list {
+      max-height: 122px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 10px;
+      line-height: 1.4;
     }
-    .cmd-bar {
+    .log-item {
+      color: rgba(175, 225, 245, 0.78);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .log-item .t { color: rgba(92, 225, 255, 0.55); margin-right: 4px; }
+
+    /* 下方雙向對話區（我 & JARVIS）與指令輸入列 */
+    .bottom-area {
       position: fixed;
-      bottom: 16px;
+      bottom: 14px;
       left: 50%;
       transform: translateX(-50%);
+      width: min(700px, 94vw);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      z-index: 12;
+    }
+    .dialogue-box {
+      width: 100%;
+      min-height: 76px;
+      max-height: 124px;
+      overflow-y: auto;
+      background: rgba(4, 15, 29, 0.84);
+      border: 1px solid rgba(0, 185, 255, 0.36);
+      box-shadow: 0 0 20px rgba(0, 160, 255, 0.12);
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      backdrop-filter: blur(8px);
+    }
+    .msg-line {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      line-height: 1.45;
+      user-select: text;
+    }
+    .msg-badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
+    }
+    .msg-me .msg-badge {
+      background: rgba(255, 168, 52, 0.22);
+      border: 1px solid rgba(255, 178, 75, 0.6);
+      color: #ffd085;
+    }
+    .msg-me .msg-text { color: #ffe5bc; }
+
+    .msg-jarvis .msg-badge {
+      background: rgba(0, 190, 255, 0.2);
+      border: 1px solid rgba(0, 200, 255, 0.55);
+      color: #6ce5ff;
+    }
+    .msg-jarvis .msg-text { color: #d6f4ff; }
+
+    .input-bar {
+      width: 100%;
       display: flex;
       gap: 8px;
-      align-items: center;
-      background: rgba(5, 15, 32, 0.92);
-      border: 1px solid rgba(0, 180, 255, 0.38);
-      padding: 8px 13px;
-      border-radius: 9px;
-      backdrop-filter: blur(10px);
-      z-index: 20;
+      background: rgba(4, 15, 29, 0.88);
+      border: 1px solid rgba(0, 185, 255, 0.36);
+      border-radius: 6px;
+      padding: 6px 8px;
+      backdrop-filter: blur(8px);
     }
-    .cmd-bar input, .cmd-bar button, .cmd-bar select {
-      background: rgba(12, 30, 58, 0.82);
-      color: #f0f9ff;
-      border: 1px solid rgba(0, 180, 255, 0.38);
-      border-radius: 5px;
+    .input-bar input,
+    .input-bar select,
+    .input-bar button {
+      background: rgba(9, 28, 52, 0.88);
+      color: #e6f7ff;
+      border: 1px solid rgba(0, 185, 255, 0.35);
+      border-radius: 4px;
       padding: 6px 10px;
-      font-size: 12.5px;
+      font-size: 12px;
       outline: none;
       user-select: text;
     }
-    .cmd-bar button { cursor: pointer; font-weight: 600; background: rgba(0, 168, 255, 0.25); }
-    .cmd-bar button:hover { background: rgba(0, 168, 255, 0.45); }
+    .input-bar input { flex: 1; }
+    .input-bar button {
+      cursor: pointer;
+      font-weight: 600;
+      background: rgba(0, 175, 255, 0.24);
+      white-space: nowrap;
+    }
+    .input-bar button:hover { background: rgba(0, 175, 255, 0.38); }
+
+    /* 鏡頭浮動框相容層 */
+    #camDock {
+      position: fixed;
+      top: 74px;
+      right: 260px;
+      width: 280px;
+      background: rgba(4, 14, 28, 0.9);
+      border: 1px solid rgba(0, 185, 255, 0.55);
+      border-radius: 6px;
+      overflow: hidden;
+      display: none;
+      z-index: 25;
+    }
+    #camHeader {
+      padding: 5px 10px;
+      background: rgba(0, 175, 255, 0.18);
+      font-size: 10px;
+      cursor: move;
+    }
+    #camImg {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+    }
   </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
-  <div class="grid-bg"></div>
-  <canvas id="hudCanvas"></canvas>
+  <div id="gl-wrap"></div>
 
-  <div class="top-bar">
-    <div class="hud-chip" id="statePanel">CORE // <span class="val" id="stateText">IDLE</span></div>
-    <div class="hud-chip">J.A.R.V.I.S. // NEURAL INTERFACE v4.2</div>
-    <div class="hud-chip" id="themePanel">OPTIC // <span class="val" id="themeText">海洋藍</span></div>
+  <div id="bootFlash">
+    <div class="boot-line"></div>
+    <div class="boot-label">J.A.R.V.I.S. ONLINE</div>
   </div>
 
-  <!-- 左側系統遙測模組 -->
-  <div class="side-panel side-left" id="leftPanel">
-    <div class="panel-title">BIOMETRIC &amp; CORE TELEMETRY</div>
-    <div class="metric-row"><span>ARC REACTOR OUTPUT</span><span id="mReactor">98.4%</span></div>
-    <div class="bar-track"><div class="bar-fill" id="bReactor" style="width:98%"></div></div>
-    <div class="metric-row"><span>NEURAL STT ENGINE</span><span>CUDA FP16</span></div>
-    <div class="bar-track"><div class="bar-fill" id="bStt" style="width:86%"></div></div>
-    <div class="metric-row"><span>PARTICLE COHERENCE</span><span id="mCoh">99.1%</span></div>
-    <div class="bar-track"><div class="bar-fill" id="bCoh" style="width:99%"></div></div>
-    <div style="margin-top:12px; opacity:0.75; line-height:1.55;">
-      VOICE COMMANDS:<br/>
-      • 主題換成紅 / 藍 / 金 / 紫 / 綠<br/>
-      • 開啟鏡頭溝通模式<br/>
-      • 鏡頭放大一點 / 縮小一點<br/>
-      • 關閉鏡頭溝通模式
+  <!-- 頂部狀態與標題 -->
+  <div class="top-header">
+    <div class="top-chip">系統狀態 // <span class="accent" id="topState">待命中</span></div>
+    <div class="brand-center">
+      <div class="brand-title">J.A.R.V.I.S.</div>
+      <div class="brand-sub">全息粒子互動介面</div>
     </div>
+    <div class="top-chip">光學主題 // <span class="accent" id="topTheme">青色</span></div>
   </div>
 
-  <!-- 右側聲學頻譜模組 -->
-  <div class="side-panel side-right" id="rightPanel">
-    <div class="panel-title">ACOUSTIC WAVEFORM MATRIX</div>
-    <div class="wave-bars" id="waveContainer"></div>
-    <div style="margin-top:12px; opacity:0.8; line-height:1.6;" id="visionStatusBox">
-      OPTICAL SENSOR: OFFLINE<br/>
-      DRAG &amp; ZOOM HUD: READY<br/>
-      MOUSE PARALLAX: ACTIVE
-    </div>
+  <!-- 左側面板：系統狀態 & 音訊輸入 -->
+  <div class="side-panel panel-sys">
+    <div class="panel-title">系統狀態</div>
+    <div class="kv-row"><span>連線狀態</span><span id="sysLink">連線中</span></div>
+    <div class="kv-row"><span>運作模式</span><span id="sysState">待命中</span></div>
+    <div class="kv-row"><span>視覺鏡頭</span><span id="sysVision">關閉</span></div>
+    <div class="kv-row"><span>目前主題</span><span id="sysTheme">青色</span></div>
   </div>
 
-  <!-- 內嵌可拖曳縮放鏡頭視窗 -->
+  <div class="side-panel panel-audio">
+    <div class="panel-title">音訊輸入</div>
+    <canvas id="waveCanvas" width="204" height="56"></canvas>
+  </div>
+
+  <!-- 右側面板：遙測數據 & 事件紀錄 -->
+  <div class="side-panel panel-telemetry">
+    <div class="panel-title">遙測數據</div>
+    <div class="kv-row"><span>系統時間</span><span id="telClock">--:--:--</span></div>
+    <div class="kv-row"><span>運行時長</span><span id="telUptime">00:00:00</span></div>
+    <div class="kv-row"><span>畫面幀率</span><span id="telFps">60</span></div>
+    <div class="kv-row"><span>粒子數量</span><span id="telPoints">16,800</span></div>
+    <div class="kv-row"><span>解析視窗</span><span id="telViewport">0x0</span></div>
+  </div>
+
+  <div class="side-panel panel-log">
+    <div class="panel-title">事件紀錄</div>
+    <div class="log-list" id="eventLogList"></div>
+  </div>
+
+  <!-- 鏡頭畫面視窗 -->
   <div id="camDock">
-    <div id="camHeader">
-      <span>OPTICAL FEED // 可拖曳 · 滾輪/語音縮放</span>
-      <div id="camControls">
-        <button id="btnZoomOut" title="縮小">-</button>
-        <button id="btnZoomIn" title="放大">+</button>
+    <div id="camHeader">即時光學鏡頭（可拖曳）</div>
+    <img id="camImg" alt="光學鏡頭畫面" />
+  </div>
+
+  <!-- 下方雙向對話（我 & JARVIS）與指令列 -->
+  <div class="bottom-area">
+    <div class="dialogue-box" id="dialogueBox">
+      <div class="msg-line msg-jarvis">
+        <span class="msg-badge">JARVIS</span>
+        <span class="msg-text">對話通道已就緒，說出「嗨賈維斯」或在下方輸入指令開始對話。</span>
       </div>
     </div>
-    <img id="camImg" alt="Camera Stream" />
+
+    <div class="input-bar">
+      <input id="cmdInput" type="text" placeholder="輸入你想對 JARVIS 說的話，按 Enter 或點擊執行指令..." />
+      <button id="sendCmdBtn">執行指令</button>
+      <select id="modeSelect">
+        <option value="IDLE">待命中</option>
+        <option value="THINKING">思考中</option>
+        <option value="SPEAKING">說話中</option>
+        <option value="LISTENING">聆聽中</option>
+        <option value="CAMERA_MODE">鏡頭模式</option>
+      </select>
+      <button id="switchModeBtn">切換狀態</button>
+    </div>
   </div>
 
-  <div class="status-banner" id="bannerText">連線至 ws://127.0.0.1:8766 中...</div>
+  <script type="module">
+    import * as THREE from "three";
+    import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+    import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+    import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 
-  <div class="cmd-bar">
-    <input id="cmdInput" type="text" size="34" placeholder="輸入：把主題換成紅色" />
-    <button id="cmdBtn">送出</button>
-    <select id="stateSelect">
-      <option value="IDLE">IDLE</option>
-      <option value="LISTENING">LISTENING</option>
-      <option value="THINKING">THINKING</option>
-      <option value="SPEAKING">SPEAKING</option>
-      <option value="CAMERA_MODE">CAMERA_MODE</option>
-    </select>
-    <button id="stateBtn">狀態</button>
-  </div>
+    const STATE_ZH = {
+      IDLE: "待命中",
+      THINKING: "思考中",
+      SPEAKING: "說話中",
+      LISTENING: "聆聽中",
+      CAMERA_MODE: "鏡頭模式"
+    };
 
-  <script>
-    const canvas = document.getElementById("hudCanvas");
-    const ctx = canvas.getContext("2d");
-    const stateText = document.getElementById("stateText");
-    const themeText = document.getElementById("themeText");
-    const statePanel = document.getElementById("statePanel");
-    const themePanel = document.getElementById("themePanel");
-    const leftPanel = document.getElementById("leftPanel");
-    const rightPanel = document.getElementById("rightPanel");
-    const bannerText = document.getElementById("bannerText");
-    const cmdInput = document.getElementById("cmdInput");
-    const cmdBtn = document.getElementById("cmdBtn");
-    const stateSelect = document.getElementById("stateSelect");
-    const stateBtn = document.getElementById("stateBtn");
-    const camDock = document.getElementById("camDock");
-    const camHeader = document.getElementById("camHeader");
-    const camImg = document.getElementById("camImg");
-    const visionStatusBox = document.getElementById("visionStatusBox");
+    const THEMES = {
+      "青色": { primary: 0x18d8ff, rim: 0x8ef3ff, deep: 0x0066cc, core: 0xffa638 },
+      "紅色": { primary: 0xff4545, rim: 0xff9a9a, deep: 0x991111, core: 0xffd166 },
+      "金色": { primary: 0xffbe2e, rim: 0xffe699, deep: 0x8c5800, core: 0x4ce8ff },
+      "紫色": { primary: 0xb66dff, rim: 0xe0bdff, deep: 0x4a198c, core: 0xffa834 },
+      "綠色": { primary: 0x19e68c, rim: 0x8ff7ca, deep: 0x0a6e42, core: 0xffbe3b }
+    };
 
     let currentState = "IDLE";
-    let currentTheme = "海洋藍";
-    let palette = { primary: "#00A8FF", core: "#FF9E2C", glow: "#0066CC" };
-    let cameraScale = 1.0;
+    let currentTheme = "青色";
+    let currentPalette = { ...THEMES["青色"] };
+    let speakTimerId = null;
+    const startTimeMs = performance.now();
 
-    // 產生右側 24 根聲波頻譜條
-    const waveContainer = document.getElementById("waveContainer");
-    const waveBars = [];
-    for (let i = 0; i < 24; i++) {
-      const b = document.createElement("div");
-      b.className = "wave-bar";
-      waveContainer.appendChild(b);
-      waveBars.push(b);
+    const topStateEl = document.getElementById("topState");
+    const topThemeEl = document.getElementById("topTheme");
+    const sysStateEl = document.getElementById("sysState");
+    const sysVisionEl = document.getElementById("sysVision");
+    const sysThemeEl = document.getElementById("sysTheme");
+    const modeSelectEl = document.getElementById("modeSelect");
+    const camDockEl = document.getElementById("camDock");
+    const camImgEl = document.getElementById("camImg");
+    const dialogueBoxEl = document.getElementById("dialogueBox");
+    const eventLogListEl = document.getElementById("eventLogList");
+    const cmdInputEl = document.getElementById("cmdInput");
+
+    function formatTimeNow() {
+      const d = new Date();
+      return d.toTimeString().slice(0, 8);
     }
 
-    // 內嵌鏡頭視窗拖曳與縮放邏輯
-    let isDragging = false, dragOffX = 0, dragOffY = 0;
-    camHeader.addEventListener("mousedown", (e) => {
-      if (e.target.tagName === "BUTTON") return;
-      isDragging = true;
-      const rect = camDock.getBoundingClientRect();
-      dragOffX = e.clientX - rect.left;
-      dragOffY = e.clientY - rect.top;
+    function pushEventLog(text) {
+      const div = document.createElement("div");
+      div.className = "log-item";
+      div.innerHTML = `<span class="t">${formatTimeNow()}</span>${text}`;
+      eventLogListEl.prepend(div);
+      while (eventLogListEl.children.length > 8) {
+        eventLogListEl.removeChild(eventLogListEl.lastChild);
+      }
+    }
+
+    function appendMessage(speaker, text) {
+      if (!text || !String(text).trim()) return;
+      const cleanText = String(text).trim();
+      const isMe = speaker === "我";
+      const line = document.createElement("div");
+      line.className = `msg-line ${isMe ? "msg-me" : "msg-jarvis"}`;
+      line.innerHTML = `
+        <span class="msg-badge">${isMe ? "我" : "JARVIS"}</span>
+        <span class="msg-text">${cleanText}</span>
+      `;
+      dialogueBoxEl.appendChild(line);
+      dialogueBoxEl.scrollTop = dialogueBoxEl.scrollHeight;
+      pushEventLog(`${isMe ? "我" : "JARVIS"}：${cleanText}`);
+    }
+
+    function triggerSpeakingFor(durationMs = 2600) {
+      applyStateUI("SPEAKING", true);
+      if (speakTimerId) clearTimeout(speakTimerId);
+      speakTimerId = setTimeout(() => {
+        if (currentState === "SPEAKING") {
+          applyStateUI("IDLE", true);
+        }
+      }, durationMs);
+    }
+
+    function applyStateUI(stateCode, silentLog = false) {
+      currentState = STATE_ZH[stateCode] ? stateCode : "IDLE";
+      const zh = STATE_ZH[currentState];
+      topStateEl.textContent = zh;
+      sysStateEl.textContent = zh;
+      sysVisionEl.textContent = currentState === "CAMERA_MODE" ? "開啟" : "關閉";
+      modeSelectEl.value = currentState;
+      camDockEl.style.display = currentState === "CAMERA_MODE" ? "block" : "none";
+      if (!silentLog) pushEventLog(`狀態切換 → ${zh}`);
+    }
+
+    function applyThemeUI(themeName) {
+      if (!THEMES[themeName]) return;
+      currentTheme = themeName;
+      currentPalette = { ...THEMES[themeName] };
+      topThemeEl.textContent = themeName;
+      sysThemeEl.textContent = themeName;
+      bodyUniforms.uColorDeep.value.setHex(currentPalette.deep);
+      bodyUniforms.uColorCyan.value.setHex(currentPalette.primary);
+      bodyUniforms.uColorRim.value.setHex(currentPalette.rim);
+      bodyUniforms.uColorAmber.value.setHex(currentPalette.core);
+      hudRingMat.color.setHex(currentPalette.primary);
+      scanConeMat.color.setHex(currentPalette.primary);
+      bgGridMat.color.setHex(currentPalette.primary);
+      pushEventLog(`主題切換 → ${themeName}`);
+    }
+
+    const wrap = document.getElementById("gl-wrap");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x030b17);
+    scene.fog = new THREE.FogExp2(0x030b17, 0.055);
+
+    const camera = new THREE.PerspectiveCamera(
+      36,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      60
+    );
+    camera.position.set(0, 0.16, 4.35);
+    camera.lookAt(0, 0.16, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    wrap.appendChild(renderer.domElement);
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.85,
+      0.56,
+      0.22
+    );
+    composer.addPass(bloomPass);
+
+    const bgGridMat = new THREE.LineBasicMaterial({
+      color: currentPalette.primary,
+      transparent: true,
+      opacity: 0.065,
+      blending: THREE.AdditiveBlending
     });
-    window.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
-      camDock.style.right = "auto";
-      camDock.style.left = Math.max(10, Math.min(window.innerWidth - camDock.offsetWidth - 10, e.clientX - dragOffX)) + "px";
-      camDock.style.top = Math.max(10, Math.min(window.innerHeight - camDock.offsetHeight - 10, e.clientY - dragOffY)) + "px";
+    const bgGridGroup = new THREE.Group();
+    bgGridGroup.position.set(0, -0.58, -0.4);
+    bgGridGroup.rotation.x = Math.PI * 0.44;
+    for (let i = -8; i <= 8; i++) {
+      const span = 3.2;
+      const g1 = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(i * 0.4, -span, 0),
+        new THREE.Vector3(i * 0.4, span, 0)
+      ]);
+      const g2 = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-span, i * 0.4, 0),
+        new THREE.Vector3(span, i * 0.4, 0)
+      ]);
+      bgGridGroup.add(new THREE.Line(g1, bgGridMat), new THREE.Line(g2, bgGridMat));
+    }
+    scene.add(bgGridGroup);
+
+    const BG_STARS = 900;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(BG_STARS * 3);
+    for (let i = 0; i < BG_STARS; i++) {
+      starPos[i * 3] = (Math.random() - 0.5) * 9.0;
+      starPos[i * 3 + 1] = (Math.random() - 0.5) * 5.5;
+      starPos[i * 3 + 2] = -1.2 - Math.random() * 5.0;
+    }
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: 0x58c8f8,
+      size: 0.018,
+      transparent: true,
+      opacity: 0.28,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
     });
-    window.addEventListener("mouseup", () => { isDragging = false; });
+    const bgStars = new THREE.Points(starGeo, starMat);
+    scene.add(bgStars);
 
-    function applyCameraScale(scale) {
-      cameraScale = Math.max(0.55, Math.min(1.85, scale));
-      camDock.style.width = Math.round(340 * cameraScale) + "px";
-    }
-    camDock.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      applyCameraScale(cameraScale + (e.deltaY < 0 ? 0.12 : -0.12));
-    });
-    document.getElementById("btnZoomIn").addEventListener("click", () => applyCameraScale(cameraScale + 0.2));
-    document.getElementById("btnZoomOut").addEventListener("click", () => applyCameraScale(cameraScale - 0.2));
+    const SHOULDER_PIVOT_Y = -0.18;
+    const NECK_PIVOT_Y = 0.16;
+    const HEAD_PIVOT_Y = 0.34;
 
-    // 滑鼠互動視差角度
-    let targetMouseYaw = 0, targetMousePitch = 0, mouseYaw = 0, mousePitch = 0;
-    window.addEventListener("mousemove", (e) => {
-      const nx = (e.clientX / window.innerWidth) * 2 - 1;
-      const ny = (e.clientY / window.innerHeight) * 2 - 1;
-      targetMouseYaw = nx * 0.42;
-      targetMousePitch = ny * 0.16;
-    });
+    const shoulderGroup = new THREE.Group();
+    shoulderGroup.position.set(0, SHOULDER_PIVOT_Y, 0);
+    scene.add(shoulderGroup);
 
-    function resize() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.floor(window.innerWidth * dpr);
-      canvas.height = Math.floor(window.innerHeight * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    window.addEventListener("resize", resize);
-    resize();
+    const neckGroup = new THREE.Group();
+    neckGroup.position.set(0, NECK_PIVOT_Y - SHOULDER_PIVOT_Y, 0);
+    shoulderGroup.add(neckGroup);
 
-    function parseHex(hex) {
-      const clean = (hex || "#00A8FF").replace("#", "");
-      const num = parseInt(clean.length === 6 ? clean : "00A8FF", 16);
-      return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
-    }
-    function rgba(hex, alpha) {
-      const { r, g, b } = parseHex(hex);
-      return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
-    }
+    const headLookGroup = new THREE.Group();
+    headLookGroup.position.set(0, HEAD_PIVOT_Y - NECK_PIVOT_Y, 0);
+    neckGroup.add(headLookGroup);
 
-    // 建構 6,500 顆高密度 3D 全像戰甲粒子 + 能量流動軌跡
-    function build3DHumanoid() {
-      const pts = [];
-      const addPt = (x, y, z, kind, size = 1.35, alpha = 0.75) => {
-        pts.push({
-          bx: x, by: y, bz: z,
-          kind,
-          phase: Math.random() * Math.PI * 2,
-          freq: 0.9 + Math.random() * 1.6,
-          size,
-          alpha
-        });
-      };
+    function sampleUpperBust(u, v) {
+      const sinU = Math.sin(u);
+      const cosU = Math.cos(u);
+      const absU = Math.abs(u);
 
-      // 1. 戰甲頭盔（3D 曲面 + 面甲中線 + 耳部感測器）
-      for (let i = 0; i < 1150; i++) {
-        const u = Math.random() * Math.PI * 2;
-        const v = Math.acos(2 * Math.random() - 1);
-        const rx = 33, ry = 45, rz = 37;
-        let x = rx * Math.sin(v) * Math.cos(u);
-        let y = ry * Math.cos(v);
-        let z = rz * Math.sin(v) * Math.sin(u);
-        if (y > 8) {
-          const taper = 1 - ((y - 8) / 37) * 0.36;
-          x *= taper;
-          z *= taper;
+      let x = 0, y = 0, z = 0;
+      let partId = 0;
+      let zone = 0;
+
+      if (v < 0.44) {
+        partId = 2;
+        const t = v / 0.44;
+        const phi = t * Math.PI * 0.92;
+        const sinP = Math.sin(phi);
+        const cosP = Math.cos(phi);
+
+        const jawTaper = t > 0.55 ? 1.0 - Math.pow((t - 0.55) / 0.45, 1.45) * 0.36 : 1.0;
+        const rx = 0.42 * sinP * jawTaper;
+        const ry = 0.53 * cosP;
+        const rz = 0.47 * sinP * (0.94 + 0.06 * cosU);
+
+        let relief = 0;
+        if (cosU > 0.0) {
+          const f = Math.pow(cosU, 1.5);
+          const brow = Math.exp(-Math.pow((t - 0.45) / 0.07, 2)) * 0.036 * f;
+          const nose = Math.exp(-Math.pow((t - 0.60) / 0.11, 2)) * Math.exp(-Math.pow(absU / 0.14, 2)) * 0.065 * f;
+          const cheek = Math.exp(-Math.pow((t - 0.62) / 0.11, 2)) * Math.exp(-Math.pow((absU - 0.52) / 0.24, 2)) * 0.025 * f;
+          const chin = Math.exp(-Math.pow((t - 0.90) / 0.075, 2)) * Math.exp(-Math.pow(absU / 0.22, 2)) * 0.032 * f;
+          relief = brow + nose + cheek + chin;
+          if (t > 0.30 && t < 0.88 && absU < 0.72) zone = 1;
         }
-        const isPlate = Math.abs(Math.sin(u * 3)) > 0.92 || Math.abs(y + 6) < 2.0 || (Math.abs(x) < 2.2 && z > 0);
-        addPt(x, y - 182, z, "head", isPlate ? 1.75 : 1.15, isPlate ? 0.95 : 0.56);
-      }
 
-      // 雙眼發光護目鏡
-      for (const side of [-1, 1]) {
-        for (let i = 0; i < 55; i++) {
-          const t = i / 54;
-          addPt(side * (6 + t * 15), -186 + t * 2.5, 33 - t * 3, "visor", 1.85, 0.98);
-        }
-      }
+        x = rx * sinU;
+        y = (0.78 + ry) - HEAD_PIVOT_Y;
+        z = rz * cosU + relief;
+      } else if (v < 0.59) {
+        partId = 1;
+        const t = (v - 0.44) / 0.15;
+        const flare = Math.pow(t, 1.7) * 0.15;
+        const rx = 0.21 + flare;
+        const rz = 0.20 + flare * 0.75;
 
-      // 2. 頸部裝甲環
-      for (let i = 0; i < 280; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const y = -136 + Math.random() * 28;
-        const r = 18 + Math.sin((y + 136) / 28 * Math.PI) * 3.5;
-        addPt(Math.cos(ang) * r, y, Math.sin(ang) * r * 0.92, "neck", 1.2, 0.58);
-      }
-
-      // 3. 胸甲、背翼輪廓與腹肌裝甲板
-      for (let i = 0; i < 2450; i++) {
-        const yn = Math.random();
-        const y = -108 + yn * 170;
-        const ang = Math.random() * Math.PI * 2;
-        const widthProfile = yn < 0.38
-          ? 82 + Math.sin(yn / 0.38 * Math.PI) * 20
-          : 82 * (1 - (yn - 0.38) * 0.38);
-        const depthProfile = yn < 0.35
-          ? 44 + Math.sin(yn / 0.35 * Math.PI) * 14
-          : 44 * (1 - (yn - 0.35) * 0.32);
-
-        const x = Math.cos(ang) * widthProfile;
-        const z = Math.sin(ang) * depthProfile;
-
-        const seam =
-          Math.abs(y + 52) < 2.2 ||
-          Math.abs(y + 12) < 2.0 ||
-          Math.abs(y - 24) < 2.0 ||
-          (Math.abs(x) < 3.0 && z > 0);
-        addPt(x, y, z, "torso", seam ? 1.8 : 1.25, seam ? 0.94 : 0.56);
-      }
-
-      // 4. 方舟反應爐（四層旋轉同心光環）
-      for (let ring = 0; ring < 4; ring++) {
-        const rad = 10 + ring * 6.8;
-        const count = 95 + ring * 45;
-        for (let i = 0; i < count; i++) {
-          const a = (i / count) * Math.PI * 2;
-          addPt(Math.cos(a) * rad, -46 + Math.sin(a) * rad, 51 - ring * 1.3, "core", ring === 0 ? 2.0 : 1.5, 0.96);
-        }
-      }
-
-      // 5. 雙肩甲與機械臂
-      for (const side of [-1, 1]) {
-        for (let i = 0; i < 320; i++) {
-          const u = Math.random() * Math.PI * 2;
-          const v = Math.random() * Math.PI * 0.78;
-          const r = 29;
-          addPt(
-            side * 100 + Math.cos(u) * Math.sin(v) * r,
-            -92 - Math.cos(v) * r * 0.85,
-            Math.sin(u) * Math.sin(v) * r,
-            "arm", 1.4, 0.75
-          );
-        }
-        for (let i = 0; i < 520; i++) {
-          const t = Math.random();
-          const ang = Math.random() * Math.PI * 2;
-          const r = 19 * (1 - t * 0.28);
-          const cxArm = side * (108 + t * 36);
-          const cyArm = -82 + t * 190;
-          const czArm = Math.sin(t * Math.PI) * 16;
-          addPt(cxArm + Math.cos(ang) * r, cyArm, czArm + Math.sin(ang) * r, "arm", 1.25, 0.65);
-        }
-      }
-
-      // 6. 螺旋上升能量粒子流（讓畫面生動不死板）
-      for (let i = 0; i < 750; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const dist = 140 + Math.random() * 260;
-        const y = -230 + Math.random() * 390;
-        addPt(Math.cos(ang) * dist, y, Math.sin(ang) * dist, "spiral", 1.2, 0.48);
-      }
-
-      return pts;
-    }
-
-    const particles = build3DHumanoid();
-
-    function syncVisualMeta() {
-      stateText.textContent = currentState;
-      themeText.textContent = currentTheme;
-      const activeCol = currentState === "CAMERA_MODE" ? palette.core : palette.primary;
-      stateText.style.color = activeCol;
-      themeText.style.color = palette.primary;
-
-      for (const el of [statePanel, themePanel, leftPanel, rightPanel, camDock]) {
-        el.style.borderColor = rgba(palette.primary, 0.45);
-      }
-      document.querySelectorAll(".bar-fill, .wave-bar").forEach((el) => {
-        el.style.backgroundColor = palette.primary;
-      });
-      stateSelect.value = currentState;
-
-      if (currentState === "CAMERA_MODE") {
-        camDock.style.display = "block";
-        visionStatusBox.innerHTML = "OPTICAL SENSOR: <b style='color:#00ff9d'>ACTIVE STREAM</b><br/>DRAG HEADER TO MOVE<br/>SCROLL OR SAY ZOOM";
+        x = rx * sinU;
+        y = (0.28 - t * 0.23) - NECK_PIVOT_Y;
+        z = rz * cosU - 0.02 * (1.0 - t);
       } else {
-        camDock.style.display = "none";
-        visionStatusBox.innerHTML = "OPTICAL SENSOR: OFFLINE<br/>DRAG &amp; ZOOM HUD: READY<br/>MOUSE PARALLAX: ACTIVE";
+        partId = 0;
+        const t = (v - 0.59) / 0.41;
+        const shoulderSpread = Math.sin(Math.min(1.0, t * 1.25) * Math.PI * 0.5);
+        const rx = 0.36 + shoulderSpread * 0.96;
+        const rz = 0.28 + shoulderSpread * 0.18 * (1.0 - t * 0.3);
+
+        const clavicle = cosU > 0
+          ? Math.exp(-Math.pow((t - 0.22) / 0.09, 2)) * Math.sin(absU * 1.3) * 0.032
+          : 0;
+        const shoulderCap = Math.exp(-Math.pow((t - 0.65) / 0.32, 2)) * Math.pow(Math.abs(sinU), 1.7) * 0.075;
+        const shoulderSlope = Math.pow(Math.abs(sinU), 1.75) * 0.24 * Math.min(1.0, t * 1.35);
+
+        x = (rx + shoulderCap) * sinU;
+        y = (0.05 - t * 0.46 - shoulderSlope) - SHOULDER_PIVOT_Y;
+        z = (rz + clavicle) * cosU;
+
+        if (cosU > 0.55 && Math.hypot(x, y + 0.04) < 0.18) {
+          zone = 2;
+        }
+      }
+
+      return { x, y, z, partId, zone };
+    }
+
+    function createParticleLayer(count, targetPartId) {
+      const pGeo = new THREE.BufferGeometry();
+      const pArr = new Float32Array(count * 3);
+      const normals = new Float32Array(count * 3);
+      const mArr = new Float32Array(count * 4);
+
+      let filled = 0;
+      let guard = 0;
+      while (filled < count && guard < count * 10) {
+        guard++;
+        const v = filled % 4 === 0
+          ? Math.floor(Math.random() * 72) / 72 + (Math.random() - 0.5) * 0.005
+          : Math.random();
+        const u = (Math.random() * 2 - 1) * Math.PI;
+        const pt = sampleUpperBust(u, Math.min(0.999, Math.max(0.001, v)));
+        if (pt.partId !== targetPartId) continue;
+
+        const isInner = Math.random() < 0.22;
+        const scale = isInner ? (0.72 + Math.random() * 0.22) : (0.985 + Math.random() * 0.025);
+
+        const px = pt.x * scale;
+        const py = pt.y + (Math.random() - 0.5) * 0.005;
+        const pz = pt.z * scale;
+
+        pArr[filled * 3] = px;
+        pArr[filled * 3 + 1] = py;
+        pArr[filled * 3 + 2] = pz;
+
+        const len = Math.hypot(px, py * 0.4, pz) || 1;
+        normals[filled * 3] = px / len;
+        normals[filled * 3 + 1] = (py * 0.4) / len;
+        normals[filled * 3 + 2] = pz / len;
+
+        const rnd = Math.random();
+        const sz = isInner ? (0.5 + rnd * 0.4) : (0.72 + rnd * 0.72);
+
+        mArr[filled * 4] = rnd;
+        mArr[filled * 4 + 1] = sz;
+        mArr[filled * 4 + 2] = isInner ? 1.0 : 0.0;
+        mArr[filled * 4 + 3] = pt.zone;
+        filled++;
+      }
+
+      for (let i = filled; i < count; i++) {
+        pArr[i * 3] = pArr[0] || 0;
+        pArr[i * 3 + 1] = pArr[1] || 0;
+        pArr[i * 3 + 2] = pArr[2] || 0;
+        normals[i * 3] = 0;
+        normals[i * 3 + 1] = 1;
+        normals[i * 3 + 2] = 0;
+        mArr[i * 4] = 0.5;
+        mArr[i * 4 + 1] = 0.6;
+        mArr[i * 4 + 2] = 0;
+        mArr[i * 4 + 3] = 0;
+      }
+
+      pGeo.setAttribute("position", new THREE.BufferAttribute(pArr, 3));
+      pGeo.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+      pGeo.setAttribute("aMeta", new THREE.BufferAttribute(mArr, 4));
+      return pGeo;
+    }
+
+    const bodyUniforms = {
+      uTime: { value: 0 },
+      uBreath: { value: 0 },
+      uSpeak: { value: 0 },
+      uScanY: { value: -0.5 },
+      uConverge: { value: 0.0 },
+      uBrainCore: { value: new THREE.Vector3(0, 0.44, 0.08) },
+      uChestCore: { value: new THREE.Vector3(0, 0.04, 0.34) },
+      uColorDeep: { value: new THREE.Color(currentPalette.deep) },
+      uColorCyan: { value: new THREE.Color(currentPalette.primary) },
+      uColorRim: { value: new THREE.Color(currentPalette.rim) },
+      uColorAmber: { value: new THREE.Color(currentPalette.core) },
+      uPixelRatio: { value: renderer.getPixelRatio() }
+    };
+
+    function makeBodyShaderMat(partId) {
+      const worldYOffset = partId === 2 ? HEAD_PIVOT_Y : (partId === 1 ? NECK_PIVOT_Y : SHOULDER_PIVOT_Y);
+      const glowExpr = partId === 2
+        ? "smoothstep(0.44, 0.05, length(p - uBrainCore))"
+        : (partId === 0 ? "smoothstep(0.26, 0.04, length(p - uChestCore)) * 0.85" : "0.0");
+
+      const originExpr = partId === 2
+        ? "uBrainCore"
+        : (partId === 0
+            ? "mix(uChestCore, vec3(0.0, 0.22, 0.14), step(0.5, rnd))"
+            : "mix(uBrainCore, uChestCore, rnd)");
+
+      return new THREE.ShaderMaterial({
+        uniforms: bodyUniforms,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        vertexShader: /* glsl */ `
+          uniform float uTime;
+          uniform float uBreath;
+          uniform float uSpeak;
+          uniform float uScanY;
+          uniform float uConverge;
+          uniform vec3 uBrainCore;
+          uniform vec3 uChestCore;
+          uniform float uPixelRatio;
+
+          attribute vec4 aMeta;
+          varying float vAlpha;
+          varying float vRim;
+          varying float vScan;
+          varying float vCoreGlow;
+          varying float vMouthActive;
+          varying float vCoreBurst;
+
+          void main() {
+            float rnd = aMeta.x;
+            float sz = aMeta.y;
+            float isInner = aMeta.z;
+            float zone = aMeta.w;
+            float ph = rnd * 6.28318;
+
+            vec3 drift = vec3(
+              sin(uTime * 0.9 + ph + position.y * 2.5),
+              cos(uTime * 0.78 + ph * 1.2 + position.x * 2.5),
+              sin(uTime * 0.85 + ph * 0.8 + position.z * 2.5)
+            ) * (0.004 + isInner * 0.005);
+
+            // 4 秒進場週期：先讓兩個金點亮起，粒子依 rnd 延遲從金點湧出、擴散並收斂成形
+            float startDelay = 0.08 + rnd * 0.36;
+            float span = max(0.08, 1.0 - startDelay);
+            float prog = clamp((uConverge - startDelay) / span, 0.0, 1.0);
+            float easeOut = 1.0 - pow(1.0 - prog, 2.8);
+
+            vec3 goldSource = ${originExpr};
+            vec3 burstDir = normalize(position - goldSource + vec3(
+              sin(ph * 3.7) * 0.42,
+              cos(ph * 2.9) * 0.32,
+              sin(ph * 4.3) * 0.42
+            ));
+
+            float arcEnvelope = sin(prog * 3.14159);
+            vec3 swirlArc = vec3(
+              -burstDir.z * arcEnvelope * 0.22,
+              sin(ph * 5.0 + prog * 6.28318) * arcEnvelope * 0.09,
+              burstDir.x * arcEnvelope * 0.22
+            );
+            vec3 flyPos = goldSource + burstDir * (0.24 + rnd * 0.38) * (1.0 - easeOut * 0.65) + swirlArc;
+            vec3 p = mix(flyPos, position, easeOut) * (1.0 + uBreath * 0.012) + drift;
+
+            float hasEmergenceStarted = step(0.0001, prog);
+            vCoreBurst = hasEmergenceStarted * ((1.0 - prog) * 0.85 + arcEnvelope * 0.42);
+            vMouthActive = 0.0;
+
+            if (zone > 0.5 && zone < 1.5 && uSpeak > 0.01) {
+              float dyMouth = p.y - 0.14;
+              float mouthMask = exp(-pow(dyMouth / 0.065, 2.0)) * exp(-pow(p.x / 0.13, 2.0));
+              float cheekMask = exp(-pow((p.y - 0.16) / 0.09, 2.0)) * exp(-pow((abs(p.x) - 0.13) / 0.08, 2.0));
+
+              float syllable = 0.5 + 0.5 * sin(uTime * 14.5 + sin(uTime * 5.2) * 2.5);
+              float openAmt = syllable * uSpeak;
+
+              float lipDir = dyMouth >= 0.0 ? 0.55 : -1.0;
+              p.y += lipDir * mouthMask * openAmt * 0.032;
+              p.x += sign(p.x + 0.0001) * (mouthMask * 0.018 + cheekMask * 0.014) * openAmt;
+              p.z += (mouthMask * 0.026 + cheekMask * 0.012) * (0.35 + 0.65 * sin(uTime * 14.5 + p.x * 24.0)) * uSpeak;
+
+              vMouthActive = clamp((mouthMask * 1.2 + cheekMask * 0.6) * openAmt, 0.0, 1.0);
+            }
+
+            float approxWorldY = p.y + ${worldYOffset.toFixed(2)};
+            float dScan = abs(approxWorldY - uScanY);
+            vScan = exp(-dScan * dScan * 45.0);
+            p += normal * (vScan * 0.008);
+
+            vCoreGlow = ${glowExpr};
+
+            vec4 mvPos = modelViewMatrix * vec4(p, 1.0);
+            vec3 viewDir = normalize(-mvPos.xyz);
+            vec3 viewNorm = normalize(normalMatrix * normal);
+            vRim = pow(1.0 - clamp(abs(dot(viewDir, viewNorm)), 0.0, 1.0), 1.85);
+
+            float twinkle = 0.82 + 0.18 * sin(uTime * 2.2 + ph * 2.0);
+            float spawnFade = smoothstep(0.0, 0.14, prog);
+            vAlpha = ((isInner > 0.5 ? 0.22 : 0.68) * twinkle + vRim * 0.32 + vScan * 0.25 + vMouthActive * 0.35) * spawnFade;
+
+            gl_PointSize = (sz * (12.5 + vRim * 4.0 + vScan * 3.5 + vMouthActive * 5.0 + vCoreBurst * 2.8) * uPixelRatio) / max(1.2, -mvPos.z);
+            gl_Position = projectionMatrix * mvPos;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform vec3 uColorDeep;
+          uniform vec3 uColorCyan;
+          uniform vec3 uColorRim;
+          uniform vec3 uColorAmber;
+
+          varying float vAlpha;
+          varying float vRim;
+          varying float vScan;
+          varying float vCoreGlow;
+          varying float vMouthActive;
+          varying float vCoreBurst;
+
+          void main() {
+            float d = length(gl_PointCoord - vec2(0.5));
+            if (d > 0.5) discard;
+            float soft = pow(1.0 - d * 2.0, 1.8);
+
+            vec3 col = mix(uColorDeep, uColorCyan, clamp(vRim * 0.9 + 0.35, 0.0, 1.0));
+            col = mix(col, uColorRim, clamp(vRim * 0.8 + vScan * 0.7, 0.0, 1.0));
+            col = mix(col, uColorAmber, clamp(vCoreGlow * 0.82 + vMouthActive * 0.75 + vCoreBurst * 0.72, 0.0, 1.0));
+
+            gl_FragColor = vec4(col, soft * vAlpha);
+          }
+        `
+      });
+    }
+
+    const headGeo = createParticleLayer(5600, 2);
+    const neckGeo = createParticleLayer(2200, 1);
+    const shoulderGeo = createParticleLayer(9000, 0);
+
+    headLookGroup.add(new THREE.Points(headGeo, makeBodyShaderMat(2)));
+    neckGroup.add(new THREE.Points(neckGeo, makeBodyShaderMat(1)));
+    shoulderGroup.add(new THREE.Points(shoulderGeo, makeBodyShaderMat(0)));
+
+    function makeEnergyCore(radius, count) {
+      const cGeo = new THREE.BufferGeometry();
+      const cPos = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        const r = Math.pow(Math.random(), 1.75) * radius;
+        const th = Math.random() * Math.PI * 2;
+        const ph = Math.acos(2 * Math.random() - 1);
+        cPos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+        cPos[i * 3 + 1] = r * Math.cos(ph);
+        cPos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th) * 0.85;
+      }
+      cGeo.setAttribute("position", new THREE.BufferAttribute(cPos, 3));
+      const cMat = new THREE.PointsMaterial({
+        color: 0xffb84d,
+        size: 0.025,
+        transparent: true,
+        opacity: 0.86,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      return new THREE.Points(cGeo, cMat);
+    }
+
+    const brainCore = makeEnergyCore(0.21, 920);
+    brainCore.position.set(0, 0.44, 0.08);
+    headLookGroup.add(brainCore);
+
+    const chestCore = makeEnergyCore(0.12, 450);
+    chestCore.position.set(0, 0.04, 0.34);
+    shoulderGroup.add(chestCore);
+
+    const hudRingMat = new THREE.LineBasicMaterial({
+      color: currentPalette.primary,
+      transparent: true,
+      opacity: 0.22,
+      blending: THREE.AdditiveBlending
+    });
+    function buildRing(radius) {
+      const pts = [];
+      for (let i = 0; i <= 128; i++) {
+        const a = (i / 128) * Math.PI * 2;
+        pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, -0.35));
+      }
+      return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), hudRingMat);
+    }
+    const outerHudRing = buildRing(1.35);
+    const innerHudRing = buildRing(1.02);
+    scene.add(outerHudRing, innerHudRing);
+
+    const scanConeGeo = new THREE.ConeGeometry(0.95, 1.85, 32, 1, true);
+    const scanConeMat = new THREE.MeshBasicMaterial({
+      color: currentPalette.primary,
+      transparent: true,
+      opacity: 0.045,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const scanCone = new THREE.Mesh(scanConeGeo, scanConeMat);
+    scanCone.position.set(0.35, 0.35, -0.1);
+    scanCone.rotation.z = -0.65;
+    scene.add(scanCone);
+
+    const waveCanvas = document.getElementById("waveCanvas");
+    const wCtx = waveCanvas.getContext("2d");
+
+    function drawAudioWave(t, speakLevel) {
+      const w = waveCanvas.width;
+      const h = waveCanvas.height;
+      wCtx.clearRect(0, 0, w, h);
+
+      wCtx.beginPath();
+      for (let x = 0; x <= w; x += 3) {
+        const nx = x / w;
+        const amp = (4 + speakLevel * 15) * Math.sin(nx * Math.PI);
+        const y = h * 0.35 + Math.sin(nx * 18 - t * 9) * amp * 0.6 + Math.cos(nx * 9 + t * 5) * amp * 0.4;
+        if (x === 0) wCtx.moveTo(x, y);
+        else wCtx.lineTo(x, y);
+      }
+      wCtx.strokeStyle = "rgba(85, 218, 255, 0.85)";
+      wCtx.lineWidth = 1.4;
+      wCtx.stroke();
+
+      const bars = 24;
+      const barW = w / bars;
+      for (let i = 0; i < bars; i++) {
+        const val = 0.2 + 0.8 * Math.abs(Math.sin(t * 6 + i * 0.55)) * (0.3 + speakLevel);
+        const bh = Math.max(2, val * 14);
+        wCtx.fillStyle = i < 16 ? "rgba(60, 210, 255, 0.75)" : "rgba(255, 175, 65, 0.75)";
+        wCtx.fillRect(i * barW + 1, h - bh - 2, barW - 3, bh);
       }
     }
+
+    function handleCommand(rawText) {
+      const text = rawText.trim();
+      if (!text) return;
+
+      appendMessage("我", text);
+
+      for (const themeName of Object.keys(THEMES)) {
+        if (text.includes(themeName)) {
+          applyThemeUI(themeName);
+          appendMessage("JARVIS", `已將全像光譜切換為「${themeName}」。`);
+          triggerSpeakingFor(2200);
+          return;
+        }
+      }
+
+      if (text.includes("幾點") || text.includes("時間")) {
+        appendMessage("JARVIS", `現在時間是 ${formatTimeNow()}。`);
+        triggerSpeakingFor(2400);
+        return;
+      }
+      if (text.includes("思考")) {
+        applyStateUI("THINKING");
+        appendMessage("JARVIS", "正在進行神經矩陣運算與推理分析。");
+        return;
+      }
+      if (text.includes("說話") || text.includes("回答")) {
+        appendMessage("JARVIS", "語音輸出模組已啟動，我正在跟你說話，你可以觀察我嘴巴附近的粒子律動。");
+        triggerSpeakingFor(4500);
+        return;
+      }
+      if (text.includes("鏡頭")) {
+        applyStateUI("CAMERA_MODE");
+        appendMessage("JARVIS", "已開啟即時光學鏡頭視窗。");
+        triggerSpeakingFor(2000);
+        return;
+      }
+      if (text.includes("待機")) {
+        if (speakTimerId) clearTimeout(speakTimerId);
+        applyStateUI("IDLE");
+        appendMessage("JARVIS", "已回到待命狀態。");
+        return;
+      }
+
+      appendMessage("JARVIS", `收到你說的：「${text}」，全像系統已同步。`);
+      triggerSpeakingFor(2800);
+    }
+
+    document.getElementById("sendCmdBtn").addEventListener("click", () => {
+      const val = cmdInputEl.value;
+      cmdInputEl.value = "";
+      handleCommand(val);
+      if (ws && ws.readyState === WebSocket.OPEN && val.trim()) {
+        ws.send(JSON.stringify({ action: "command", text: val.trim() }));
+      }
+    });
+    cmdInputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        document.getElementById("sendCmdBtn").click();
+      }
+    });
+    document.getElementById("switchModeBtn").addEventListener("click", () => {
+      const next = modeSelectEl.value;
+      if (speakTimerId) clearTimeout(speakTimerId);
+      applyStateUI(next);
+      appendMessage("JARVIS", `已切換至「${STATE_ZH[next]}」模式。`);
+      if (next === "SPEAKING") {
+        speakTimerId = setTimeout(() => {
+          if (currentState === "SPEAKING") applyStateUI("IDLE", true);
+        }, 5000);
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "set_state", state: next }));
+      }
+    });
 
     let ws = null;
-    function connectSocket() {
-      ws = new WebSocket("ws://127.0.0.1:8766");
-      ws.onopen = () => {
-        bannerText.textContent = "全像神經核心已連線，隨時待命。";
-      };
-      ws.onmessage = (ev) => {
-        const msg = JSON.parse(ev.data);
-        if (msg.type === "sync") {
-          currentState = msg.state || "IDLE";
-          currentTheme = msg.theme_name || "海洋藍";
-          if (msg.palette) palette = { ...palette, ...msg.palette };
-          if (msg.camera_scale) applyCameraScale(msg.camera_scale);
-          syncVisualMeta();
-        } else if (msg.type === "theme") {
-          currentTheme = msg.theme_name || currentTheme;
-          if (msg.palette) palette = { ...palette, ...msg.palette };
-          syncVisualMeta();
-          bannerText.textContent = `主題已切換為「${currentTheme}」。`;
-        } else if (msg.type === "state") {
-          currentState = msg.state || currentState;
-          syncVisualMeta();
-        } else if (msg.type === "camera_frame" && msg.jpeg_b64) {
-          camDock.style.display = "block";
-          camImg.src = "data:image/jpeg;base64," + msg.jpeg_b64;
-        } else if (msg.type === "camera_scale" && msg.scale) {
-          applyCameraScale(msg.scale);
-        } else if (msg.type === "notify") {
-          bannerText.textContent = msg.message || "";
-        } else if (msg.type === "response") {
-          bannerText.textContent = msg.message || "";
-        }
-      };
-      ws.onclose = () => { setTimeout(connectSocket, 1500); };
-    }
-    connectSocket();
+    function connectLegacySocket() {
+      try {
+        ws = new WebSocket("ws://127.0.0.1:8766");
+        ws.onopen = () => {
+          document.getElementById("sysLink").textContent = "已連線";
+        };
+        ws.onmessage = (ev) => {
+          let msg = null;
+          try { msg = JSON.parse(ev.data); } catch (_) { return; }
+          if (!msg) return;
 
-    function submitCmd() {
-      const val = cmdInput.value.trim();
-      if (!val || !ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ action: "command", text: val }));
-      cmdInput.value = "";
+          if (msg.type === "sync" || msg.type === "state") {
+            applyStateUI(msg.state);
+          } else if (msg.type === "theme" && msg.theme_name) {
+            applyThemeUI(msg.theme_name);
+          }
+
+          const userSay = msg.user_speech || msg.user_text || msg.transcript || (msg.type === "asr" ? (msg.text || msg.message) : "");
+          if (userSay) {
+            appendMessage("我", userSay);
+          }
+
+          const botReply = msg.response || msg.reply || msg.assistant_text || (msg.type === "message" ? msg.message : "");
+          if (botReply) {
+            appendMessage("JARVIS", botReply);
+            triggerSpeakingFor(Math.max(2200, Math.min(6000, String(botReply).length * 140)));
+          } else if (msg.type === "status" && msg.message) {
+            pushEventLog(msg.message);
+          }
+
+          if (msg.type === "camera_frame" && msg.jpeg_b64) {
+            camDockEl.style.display = "block";
+            camImgEl.src = "data:image/jpeg;base64," + msg.jpeg_b64;
+          }
+        };
+        ws.onclose = () => {
+          document.getElementById("sysLink").textContent = "離線重連中";
+          setTimeout(connectLegacySocket, 3000);
+        };
+      } catch (_) {}
     }
-    cmdBtn.addEventListener("click", submitCmd);
-    cmdInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitCmd(); });
-    stateBtn.addEventListener("click", () => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ action: "set_state", state: stateSelect.value }));
+    connectLegacySocket();
+
+    // 開機光束與語音播報
+    const GREETING_MSG = "我是賈維斯，需要我幫助你做什麼？";
+    const bootFlashEl = document.getElementById("bootFlash");
+    let hasSpokenGreeting = false;
+
+    function speakGreeting() {
+      if (hasSpokenGreeting) return;
+      hasSpokenGreeting = true;
+      appendMessage("JARVIS", GREETING_MSG);
+      triggerSpeakingFor(3400);
+
+      if ("speechSynthesis" in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(GREETING_MSG);
+          const voices = window.speechSynthesis.getVoices() || [];
+          const zhVoice = voices.find((v) => /zh/i.test(v.lang));
+          if (zhVoice) utter.voice = zhVoice;
+          utter.lang = "zh-TW";
+          utter.rate = 0.98;
+          utter.pitch = 0.9;
+          utter.onend = () => {
+            if (speakTimerId) clearTimeout(speakTimerId);
+            applyStateUI("IDLE", true);
+          };
+          window.speechSynthesis.speak(utter);
+        } catch (_) {}
+      }
+    }
+
+    function startLightBoot() {
+      requestAnimationFrame(() => {
+        bootFlashEl.classList.add("expand");
+      });
+
+      setTimeout(() => {
+        speakGreeting();
+      }, 1400);
+
+      setTimeout(() => {
+        bootFlashEl.classList.add("done");
+        setTimeout(() => {
+          if (bootFlashEl && bootFlashEl.parentNode) {
+            bootFlashEl.remove();
+          }
+        }, 950);
+      }, 2300);
+    }
+
+    window.addEventListener("pointerdown", () => {
+      if (!hasSpokenGreeting) speakGreeting();
+    }, { once: true });
+
+    let mouseNdcX = 0;
+    let mouseNdcY = 0;
+    let smoothYaw = 0;
+    let smoothPitch = 0;
+
+    window.addEventListener("mousemove", (e) => {
+      mouseNdcX = (e.clientX / window.innerWidth) * 2 - 1;
+      mouseNdcY = -((e.clientY / window.innerHeight) * 2 - 1);
     });
 
-    // 底部全像投影基座光圈
-    function drawPedestal(cx, cy, time) {
-      ctx.save();
-      ctx.translate(cx, cy + 128);
-      ctx.scale(1, 0.28);
+    const clock = new THREE.Clock();
+    let frameCnt = 0;
+    let fpsLast = performance.now();
+    const telClockEl = document.getElementById("telClock");
+    const telUptimeEl = document.getElementById("telUptime");
+    const telFpsEl = document.getElementById("telFps");
+    const telViewportEl = document.getElementById("telViewport");
 
-      for (let r = 0; r < 3; r++) {
-        const radius = 125 + r * 42 + Math.sin(time * 2 + r) * 5;
-        ctx.strokeStyle = rgba(r === 0 ? palette.core : palette.primary, 0.45 - r * 0.1);
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.stroke();
+    function updateViewportLabel() {
+      telViewportEl.textContent = `${window.innerWidth}x${window.innerHeight}`;
+    }
+    updateViewportLabel();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const breath = 0.5 + 0.5 * Math.sin(t * 1.7);
+      const scanY = -0.45 + ((t * 0.2) % 1.0) * 1.55;
+      const converge = Math.min(1.0, t / 4.0);
+
+      let speakLevel = 0.0;
+      if (currentState === "SPEAKING") {
+        const envelope = 0.55 + 0.45 * Math.sin(t * 3.1);
+        const fastSyllable = 0.5 + 0.5 * Math.sin(t * 14.5 + Math.cos(t * 6.3) * 2.0);
+        speakLevel = Math.min(1.0, (0.35 + fastSyllable * 0.65) * envelope);
+      } else if (currentState === "THINKING") {
+        speakLevel = 0.16 + 0.08 * Math.sin(t * 5.0);
+      } else if (currentState === "LISTENING") {
+        speakLevel = 0.12;
       }
-      ctx.restore();
 
-      // 垂直投影光柱
-      const beam = ctx.createLinearGradient(cx, cy + 128, cx, cy - 210);
-      beam.addColorStop(0, rgba(palette.primary, 0.16));
-      beam.addColorStop(1, "transparent");
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      ctx.moveTo(cx - 135, cy + 128);
-      ctx.lineTo(cx + 135, cy + 128);
-      ctx.lineTo(cx + 75, cy - 210);
-      ctx.lineTo(cx - 75, cy - 210);
-      ctx.closePath();
-      ctx.fill();
+      const targetYaw = mouseNdcX * 0.24;
+      const targetPitch = -mouseNdcY * 0.15;
+      smoothYaw += (targetYaw - smoothYaw) * 0.055;
+      smoothPitch += (targetPitch - smoothPitch) * 0.055;
+
+      shoulderGroup.rotation.y = smoothYaw * 0.14;
+      shoulderGroup.rotation.x = smoothPitch * 0.10 + Math.sin(t * 1.7) * 0.008;
+
+      neckGroup.rotation.y = smoothYaw * 0.30;
+      neckGroup.rotation.x = smoothPitch * 0.25;
+
+      headLookGroup.rotation.y = smoothYaw * 0.56;
+      headLookGroup.rotation.x = smoothPitch * 0.65;
+
+      bodyUniforms.uTime.value = t;
+      bodyUniforms.uBreath.value = breath;
+      bodyUniforms.uSpeak.value = speakLevel;
+      bodyUniforms.uScanY.value = scanY;
+      bodyUniforms.uConverge.value = converge;
+
+      const coreScale = 0.65 + 0.35 * Math.min(1.0, t / 0.6);
+      brainCore.scale.setScalar(coreScale);
+      chestCore.scale.setScalar(coreScale);
+
+      brainCore.rotation.y = t * 0.45;
+      brainCore.rotation.x = Math.sin(t * 0.8) * 0.25;
+      chestCore.rotation.y = -t * 0.55;
+      outerHudRing.rotation.z = t * 0.12;
+      innerHudRing.rotation.z = -t * 0.18;
+      bgStars.rotation.y = t * 0.015;
+
+      drawAudioWave(t, speakLevel);
+      composer.render();
+
+      frameCnt++;
+      const now = performance.now();
+      if (now - fpsLast >= 1000) {
+        telFpsEl.textContent = String(Math.round((frameCnt * 1000) / (now - fpsLast)));
+        telClockEl.textContent = formatTimeNow();
+        const secTotal = Math.floor((now - startTimeMs) / 1000);
+        const hh = String(Math.floor(secTotal / 3600)).padStart(2, "0");
+        const mm = String(Math.floor((secTotal % 3600) / 60)).padStart(2, "0");
+        const ss = String(secTotal % 60).padStart(2, "0");
+        telUptimeEl.textContent = `${hh}:${mm}:${ss}`;
+        frameCnt = 0;
+        fpsLast = now;
+      }
     }
 
-    function drawTechRings(cx, cy, time) {
-      ctx.save();
-      ctx.translate(cx, cy - 46);
-
-      // 外圈多段戰術刻度環
-      ctx.save();
-      ctx.rotate(time * (currentState === "THINKING" ? 1.6 : 0.28));
-      ctx.strokeStyle = rgba(palette.primary, 0.42);
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, 248, 0, Math.PI * 2);
-      ctx.stroke();
-
-      for (let i = 0; i < 48; i++) {
-        const a = (i / 48) * Math.PI * 2;
-        const r1 = 240;
-        const r2 = i % 4 === 0 ? 256 : 247;
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
-        ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // 中圈反向動態弧線
-      ctx.save();
-      ctx.rotate(-time * (currentState === "SPEAKING" ? 2.1 : 0.65));
-      ctx.strokeStyle = rgba(palette.core, 0.58);
-      ctx.lineWidth = 2.0;
-      for (let k = 0; k < 4; k++) {
-        const base = (k * Math.PI) / 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, 206, base + 0.14, base + 0.92);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // 說話或思考時釋放擴散能量波紋
-      if (currentState === "SPEAKING" || currentState === "THINKING" || currentState === "LISTENING") {
-        const pulseR = ((time * 130) % 240) + 30;
-        const pulseAlpha = Math.max(0, 1 - pulseR / 270) * 0.45;
-        ctx.strokeStyle = rgba(currentState === "SPEAKING" ? palette.core : palette.primary, pulseAlpha);
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    }
-
-    let clock = 0;
-    function frame() {
-      clock += 0.016;
+    window.addEventListener("resize", () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const cx = w / 2;
-      const cy = h / 2 + 26;
+      const pr = Math.min(window.devicePixelRatio, 2);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(pr);
+      composer.setSize(w, h);
+      bloomPass.setSize(w, h);
+      bodyUniforms.uPixelRatio.value = pr;
+      updateViewportLabel();
+    });
 
-      // 平滑追蹤滑鼠視差 + 自動呼吸擺動
-      mouseYaw += (targetMouseYaw - mouseYaw) * 0.08;
-      mousePitch += (targetMousePitch - mousePitch) * 0.08;
-      const yaw = Math.sin(clock * 0.6) * 0.22 + mouseYaw;
-      const cosY = Math.cos(yaw);
-      const sinY = Math.sin(yaw);
-      const fov = 560;
-
-      // 更新右側動態聲波頻譜條
-      for (let i = 0; i < waveBars.length; i++) {
-        let level = 14 + Math.sin(clock * 3 + i * 0.5) * 8;
-        if (currentState === "SPEAKING") level = 25 + Math.abs(Math.sin(clock * 14 + i * 0.7)) * 72;
-        else if (currentState === "LISTENING") level = 20 + Math.abs(Math.sin(clock * 8 + i * 0.4)) * 48;
-        else if (currentState === "THINKING") level = 30 + Math.abs(Math.cos(clock * 11 + i * 0.6)) * 55;
-        waveBars[i].style.height = Math.min(100, Math.max(8, level)) + "%";
-      }
-
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(2, 6, 15, 0.34)";
-      ctx.fillRect(0, 0, w, h);
-
-      drawPedestal(cx, cy, clock);
-      drawTechRings(cx, cy, clock);
-
-      let speed = 1.0, amp = 1.4, coreScale = 1.0;
-      if (currentState === "LISTENING") {
-        speed = 1.6; amp = 2.8; coreScale = 1.2 + Math.sin(clock * 8) * 0.2;
-      } else if (currentState === "THINKING") {
-        speed = 2.6; amp = 4.2; coreScale = 1.18 + Math.cos(clock * 12) * 0.24;
-      } else if (currentState === "SPEAKING") {
-        speed = 2.0; amp = 3.6; coreScale = 1.32 + Math.abs(Math.sin(clock * 14)) * 0.45;
-      } else if (currentState === "CAMERA_MODE") {
-        speed = 1.3; amp = 1.9; coreScale = 1.16;
-      } else {
-        coreScale = 1.0 + Math.sin(clock * 2.4) * 0.09;
-      }
-
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        let x0 = p.bx, y0 = p.by, z0 = p.bz;
-
-        if (p.kind === "spiral") {
-          const spin = clock * 0.65 + p.phase;
-          const rad = Math.hypot(p.bx, p.bz);
-          x0 = Math.cos(spin) * rad;
-          z0 = Math.sin(spin) * rad;
-          y0 = ((p.by + 230 - clock * 28) % 390 + 390) % 390 - 230;
-        } else {
-          x0 += Math.sin(clock * speed * p.freq + p.phase) * amp;
-          y0 += Math.cos(clock * speed * p.freq * 1.1 + p.phase) * amp;
-        }
-
-        const rx3 = x0 * cosY - z0 * sinY;
-        const rz3 = x0 * sinY + z0 * cosY;
-        const scale = fov / (fov + rz3 + 120);
-
-        const sx = cx + rx3 * scale;
-        const sy = cy + (y0 + mousePitch * 45) * scale;
-
-        const depthFactor = Math.max(0.28, Math.min(1.3, (78 - rz3) / 110 + 0.56));
-        const flicker = 0.78 + 0.22 * Math.sin(clock * 4.0 + p.phase);
-        const isCoreOrVisor = p.kind === "core" || p.kind === "visor";
-        const col = isCoreOrVisor ? palette.core : palette.primary;
-
-        ctx.fillStyle = rgba(col, p.alpha * depthFactor * flicker);
-        ctx.beginPath();
-        ctx.arc(sx, sy, p.size * scale * (0.75 + 0.32 * depthFactor), 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // 方舟反應爐高能光暈
-      const rCore = 23 * coreScale;
-      const gCore = ctx.createRadialGradient(cx, cy - 46 + mousePitch * 45, 1, cx, cy - 46 + mousePitch * 45, rCore * 3.2);
-      gCore.addColorStop(0, "rgba(255, 255, 255, 0.98)");
-      gCore.addColorStop(0.28, rgba(palette.core, 0.9));
-      gCore.addColorStop(0.68, rgba(palette.core, 0.24));
-      gCore.addColorStop(1, "transparent");
-      ctx.fillStyle = gCore;
-      ctx.beginPath();
-      ctx.arc(cx, cy - 46 + mousePitch * 45, rCore * 3.2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.restore();
-      requestAnimationFrame(frame);
-    }
-    frame();
+    startLightBoot();
+    animate();
   </script>
 </body>
 </html>

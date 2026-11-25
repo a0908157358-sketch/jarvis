@@ -131,30 +131,44 @@ class JarvisVoiceAssistant:
             if self.ws is None:
                 return
             try:
-                await self.ws.send(json.dumps({"action": "set_state", "state": state}, ensure_ascii=False))
+                await asyncio.wait_for(
+                    self.ws.send(json.dumps({"action": "set_state", "state": state}, ensure_ascii=False)),
+                    timeout=1.0,
+                )
                 if note:
-                    await self.ws.send(
-                        json.dumps({"action": "command", "text": f"__NOTIFY__:{note}"}, ensure_ascii=False)
+                    await asyncio.wait_for(
+                        self.ws.send(
+                            json.dumps({"action": "command", "text": f"__NOTIFY__:{note}"}, ensure_ascii=False)
+                        ),
+                        timeout=1.0,
                     )
             except Exception:
                 self.ws = None
 
     async def _camera_stream_loop(self) -> None:
-        """當鏡頭開啟時，持續將輕量 JPEG 影格推送到 HUD 內嵌浮動視窗（約 15 FPS）。"""
+        """當鏡頭開啟時，以穩定 10 FPS 推送輕量預覽幀，並禮讓狀態切換指令不搶鎖。"""
         while not self._stop_event.is_set():
             try:
                 if self.camera.active:
-                    b64 = await asyncio.to_thread(self.camera.capture_base64_preview)
-                    if b64:
-                        async with self._ws_lock:
-                            if self.ws is not None:
-                                try:
-                                    await self.ws.send(
-                                        json.dumps({"action": "camera_frame", "jpeg_b64": b64}, ensure_ascii=False)
-                                    )
-                                except Exception:
-                                    self.ws = None
-                    await asyncio.sleep(0.065)
+                    # 若狀態訊息正在傳送，直接略過此幀避免堆積阻塞
+                    if not self._ws_lock.locked():
+                        b64 = await asyncio.to_thread(self.camera.capture_base64_preview)
+                        if b64 and not self._ws_lock.locked():
+                            async with self._ws_lock:
+                                if self.ws is not None:
+                                    try:
+                                        await asyncio.wait_for(
+                                            self.ws.send(
+                                                json.dumps(
+                                                    {"action": "camera_frame", "jpeg_b64": b64},
+                                                    ensure_ascii=False,
+                                                )
+                                            ),
+                                            timeout=0.35,
+                                        )
+                                    except Exception:
+                                        self.ws = None
+                    await asyncio.sleep(0.10)
                 else:
                     await asyncio.sleep(0.25)
             except asyncio.CancelledError:
@@ -185,7 +199,6 @@ class JarvisVoiceAssistant:
             return
 
         await self.push_state("THINKING", "正在處理指令...")
-        # 若鏡頭正在開啟，提示模型可直接針對畫面判斷或執行控制
         prompt_for_agent = (
             f"[系統狀態：鏡頭溝通模式已開啟] {cleaned}" if self.camera.active else cleaned
         )
